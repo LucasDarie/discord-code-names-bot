@@ -19,7 +19,7 @@ class GameList(object):
             raise GameNotFound()
         self.game_list.pop(channel_id)
     
-    def get_game(self, channel_id):
+    async def get_game(self, channel_id) -> Game:
         if channel_id not in self.game_list:
             raise GameNotFound()
         return self.game_list.get(channel_id)
