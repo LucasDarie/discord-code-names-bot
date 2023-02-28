@@ -34,7 +34,7 @@ class State(enum.Enum):
                 return None
 
 class Player(object):
-    async def __init__(self, user: di.User, team_color: ColorCard) -> None:
+    def __init__(self, user: di.User, team_color: ColorCard) -> None:
         self.user: di.User = user
         self.team_color: ColorCard = team_color
         self.isSpy: bool = False
@@ -43,7 +43,7 @@ class Player(object):
 class Game(object):
     
 
-    async def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str) -> None:
+    def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str) -> None:
         """constructeur of a Game object
 
         Args:
@@ -52,7 +52,7 @@ class Game(object):
             channel_id (str): the channel id where the game has been created
             guild_id (str) : the guild id where the game has been created
         """
-        super(CardGrid, self).__init__()
+        super(Game, self).__init__()
 
         nb_random = random.randint(0, 1)
         team_colors = [ColorCard.BLUE, ColorCard.RED]
@@ -241,7 +241,7 @@ class Game(object):
         if self.state not in [State.BLUE_SPY, State.RED_SPY]:
             raise NotYourTurn("it's up to the players to play") # TODO message
         
-        if self.state.color() != player.team_color:
+        if await self.state.color() != player.team_color:
             raise NotYourTurn("it's not your team's turn")
         
         if number < 0:
@@ -316,7 +316,7 @@ class Game(object):
         if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
             raise NotYourTurn("it's up to the spies to play") # TODO message
         
-        if self.state.color() != player.team_color:
+        if await self.state.color() != player.team_color:
             raise NotYourTurn("it's not your team's turn")
 
         try:
@@ -363,7 +363,7 @@ class Game(object):
         if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
             raise NotYourTurn("it's up to the spies to play") # TODO message
         
-        if self.state.color() != player.team_color:
+        if await self.state.color() != player.team_color:
             raise NotYourTurn("it's not your team's turn")
 
         if not self.one_word_found:

@@ -7,10 +7,10 @@ class GameList(object):
     def __init__(self) -> None:
         self.game_list :dict[str:Game]= {}
 
-    async def create_game(self, language:Language, channel_id:str, creator_id:str):
+    async def create_game(self, language:Language, channel_id:str, creator_id:str, guild_id:str):
         if channel_id in self.game_list:
             raise GameInChannelAlreadyCreated()
-        newGame = Game(language, creator_id, channel_id)
+        newGame = Game(language, creator_id, channel_id, guild_id)
         self.game_list[channel_id] = newGame
         return newGame
 
