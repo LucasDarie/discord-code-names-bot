@@ -103,5 +103,5 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
     CANVAS.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
 
-cardGrid = CardGrid(language=Language.FR)
-generateGrid(cardGrid, isSpy=True)
+# cardGrid = CardGrid(language=Language.FR)
+# generateGrid(cardGrid, isSpy=True)
