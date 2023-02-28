@@ -1,23 +1,40 @@
+import random
 from Language import Language
 from CardGrid import CardGrid
 from ColorCard import ColorCard
 import interactions as di
 import enum
 from CodeGameExceptions import *
+import unidecode
+import grid_generator
+import asyncio
 
 class State(enum.Enum):
     WAITING = 0
-    STARTING = 1
-    BLUE_SPY = 2
-    BLUE_PLAYER = 3
-    BLUE_WIN = 4
-    RED_SPY = 5
-    RED_PLAYER = 6
-    RED_WIN = 7
-    FINISHED = 8
+    BLUE_SPY = 1
+    BLUE_PLAYER = 2
+    BLUE_WIN = 3
+    RED_SPY = 4
+    RED_PLAYER = 5
+    RED_WIN = 6
+    FINISHED = 7
+
+    async def color(self) -> ColorCard | None:
+        """return the color of the team associate to each state, if no color is associate return None
+
+        Returns:
+            ColorCard | None : the color of the team associate to each state, None if no color is associate
+        """
+        match self:
+            case State.BLUE_SPY | State.BLUE_PLAYER | State.BLUE_WIN:
+                return ColorCard.BLUE
+            case State.RED_SPY | State.RED_PLAYER | State.RED_WIN:
+                return ColorCard.RED
+            case _:
+                return None
 
 class Player(object):
-    def __init__(self, user: di.User, team_color: ColorCard) -> None:
+    async def __init__(self, user: di.User, team_color: ColorCard) -> None:
         self.user: di.User = user
         self.team_color: ColorCard = team_color
         self.isSpy: bool = False
@@ -26,7 +43,7 @@ class Player(object):
 class Game(object):
     
 
-    def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str) -> None:
+    async def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str) -> None:
         """constructeur of a Game object
 
         Args:
@@ -37,15 +54,23 @@ class Game(object):
         """
         super(CardGrid, self).__init__()
 
-        self.creator :str = creator_id
+        nb_random = random.randint(0, 1)
+        team_colors = [ColorCard.BLUE, ColorCard.RED]
+        
+        self.starting_team_color:ColorCard = team_colors[nb_random]
+        self.creator_id :str = creator_id
         self.channel_id:str = channel_id
         self.guild_id:str = guild_id
-        self.card_grid = CardGrid(language=language)
+        self.card_grid = CardGrid(language=language, starting_team_color=self.starting_team_color)
         self.state : State = State.WAITING
         self.player_list: dict[str:Player] = {}
+        self.last_word_suggested:str = ""
+        self.last_number_hint:int = 0
+        self.bonus_proposition:bool = True
+        self.one_word_found:bool = False
 
 
-    def join(self, user: di.User, team_color: ColorCard):
+    async def join(self, user: di.User, team_color: ColorCard):
         """add a user to the game. 
             If the Player is already in the game, switch there team color.
 
@@ -67,7 +92,7 @@ class Game(object):
         # else
         self.player_list[user.id] = Player(user=user, team_color=team_color)
 
-    def leave(self, user:di.User):
+    async def leave(self, user:di.User):
         """remove a user from a game
 
         Args:
@@ -84,6 +109,295 @@ class Game(object):
             raise NotInGame()
         
         self.player_list.pop(user.id)
+
+
+    async def next_state(self):
+        """change the state depending on the current state
+        """
+        match self.state:
+            case State.WAITING :
+                if self.starting_team_color == ColorCard.BLUE:
+                    self.state = State.BLUE_SPY
+                else: 
+                    self.state = State.RED_SPY
+
+            case State.BLUE_SPY :
+                self.state = State.BLUE_PLAYER
+            case State.BLUE_PLAYER :
+                winner = self.who_won() # State.BLUE_WIN | State.RED_WIN | None
+                if winner == None:
+                    self.state = State.RED_SPY
+                else:
+                    self.state = winner
+
+            case State.RED_SPY :
+                self.state = State.RED_PLAYER
+
+            case State.RED_PLAYER :
+                winner = self.who_won() # State.BLUE_WIN | State.RED_WIN | None
+                if winner == None:
+                    self.state = State.BLUE_SPY
+                else:
+                    self.state = winner
+
+            case State.RED_WIN | State.BLUE_WIN:
+                self.state = State.FINISHED
+
+            case State.FINISHED :
+                self.state = State.WAITING # TODO Change this
+
+    async def who_won(self) -> State | None:
+        """return the State of the team that win if it the case, else return None
+
+        Returns:
+            State | None: the State of the team that win if it the case, else return None
+        """
+        # Blue team found all cards
+        if self.card_grid.remaining_words_count[ColorCard.BLUE] <= 0:
+            return State.BLUE_WIN
+        # Red team found all cards
+        elif self.card_grid.remaining_words_count[ColorCard.RED] <= 0:
+            return State.RED_WIN
+        # Black card found
+        elif self.card_grid.remaining_words_count[ColorCard.BLACK] <= 0:
+            # by blue team
+            if self.state == State.BLUE_PLAYER:
+                return State.RED_WIN
+            # by red team
+            elif self.state == State.RED_PLAYER:
+                return State.BLUE_WIN
+        return None
+
+    async def nb_player_in_team(self, team_color:ColorCard) -> int:
+        """return the number of player in the specified "team_color" team
+
+        Args:
+            team_color (ColorCard): the color of the team
+
+        Returns:
+            int: the number of player in the team, 0 if the color is not RED or BLUE
+        """
+        if team_color not in [ColorCard.RED, ColorCard.BLUE]:
+            return 0
+        # return the number of player in the specified team
+        return sum(player.team_color == team_color for player in self.player_list.values())
+
+    async def start(self, creator_id:str):
+        """Starts a new game if the creator_id is the same as the User that create the game
+
+        Args:
+            creator_id (str): the id of the User running the command
+
+        Raises:
+            NotGameCreator: if the command is run by another User than the one who create the game
+            GameAlreadyStarted: if the game is already started
+            NotEnoughPlayerInTeam: if the number of player in a team is smaller than 2
+        """
+        if self.creator_id != creator_id:
+            raise NotGameCreator()
+        
+        if self.state != State.WAITING:
+            raise GameAlreadyStarted()
+        
+        if self.nb_player_in_team(ColorCard.RED) < 2:
+            raise NotEnoughPlayerInTeam("RED")
+        
+        if self.nb_player_in_team(ColorCard.BLUE) < 2:
+            raise NotEnoughPlayerInTeam("BLUE")
+        
+        self.next_state()
+
+    async def suggest(self, user:di.User, word:str, number:int) -> tuple[str, int]:
+        """suggest a word and a number of try for a spy
+
+        Args:
+            user (di.User): the user that run the command
+            word (str): the word given by the spy user
+            number (int): the number of try given by the spy user
+
+        Raises:
+            NotInGame: if the player is not in a game
+            GameNotStarted: if the game is not yet started
+            NotYourRole: if the Player is not a spy
+            NotYourTurn: if it's not a spy turn
+            NotYourTurn: if it's not the team of the user that play
+            WrongHintNumberGiven: if the number given is smaller than 0
+            WordInGrid: if the word given is in the grid
+
+        Returns:
+            tuple[str, int]: the word and the number stored
+        """
+        if user.id not in self.player_list:
+            raise NotInGame()
+        
+        if self.state == State.WAITING:
+            raise GameNotStarted()
+
+        player:Player = self.player_list[user.id]
+
+        if not player.isSpy:
+            raise NotYourRole()
+        
+        if self.state not in [State.BLUE_SPY, State.RED_SPY]:
+            raise NotYourTurn("it's up to the players to play") # TODO message
+        
+        if self.state.color() != player.team_color:
+            raise NotYourTurn("it's not your team's turn")
+        
+        if number < 0:
+            raise WrongHintNumberGiven()
+        
+        # remove or replace special characters and keep only the first word in the possible sentence
+        newWord = unidecode.unidecode(word).upper().split(" ")[0]
+        if self.card_grid.is_in_grid(newWord):
+            raise WordInGrid()
+        
+        self.last_number_hint = number
+        self.last_word_suggested = newWord
+        self.one_word_found = False
+        self.next_state()
+
+        return (self.last_word_suggested, self.last_number_hint)
+    
+    async def find_by_card_id(self, user:di.User, card_id:int) -> ColorCard:
+        """porposed a card id in the grid to find a word
+
+        then call find_by_word(self, user:di.User, word:str)
+
+        Args:
+            user (di.User): the user that run the command
+            card_id (int): the word given by the player
+
+        Raises:
+            NotInGame: if the player is not in a game
+            GameNotStarted: if the game is not yet started
+            NotYourRole: if the Player is a spy
+            NotYourTurn: if it's not a Player turn
+            NotYourTurn: if it's not the team of the user that play
+            WrongCardIdNumberGiven: _description_
+
+        Returns:
+            ColorCard: the color of the finded card
+        """
+        # can raise WrongCardIdNumberGiven
+        word = self.card_grid.get_word_by_number(card_id)
+        # can raise the other Exceptions mentioned in the doc
+        return self.find_by_word(user, word)
+    
+    async def find_by_word(self, user:di.User, word:str) -> ColorCard:
+        """proposed a word in the grid
+
+        Args:
+            user (di.User): the user that run the command
+            word (str): the word given by the player
+
+        Raises:
+            NotInGame: if the player is not in a game
+            GameNotStarted: if the game is not yet started
+            NotYourRole: if the Player is a spy
+            NotYourTurn: if it's not a Player turn
+            NotYourTurn: if it's not the team of the user that play
+            WordNotInGrid: if the word is not present in the grid
+
+        Returns:
+            ColorCard: the color of the finded card
+        """
+        if user.id not in self.player_list:
+            raise NotInGame()
+        
+        if self.state == State.WAITING:
+            raise GameNotStarted()
+        
+        player:Player = self.player_list[user.id]
+
+        if player.isSpy:
+            raise NotYourRole()
+        
+        if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
+            raise NotYourTurn("it's up to the spies to play") # TODO message
+        
+        if self.state.color() != player.team_color:
+            raise NotYourTurn("it's not your team's turn")
+
+        try:
+            color = self.card_grid.find(word) # can raise WordNotInGrid
+            # one or more proposition left
+            if self.last_number_hint > 0:
+                self.last_number_hint -= 1
+                self.one_word_found = True
+            # no more proposition except the bonus one
+            elif self.bonus_proposition: 
+                self.bonus_proposition = False
+                self.next_state()
+            # generate the png grids
+            self.create_grid()
+            return color
+        except WordNotInGrid as word_in_grid:
+            raise word_in_grid
+
+    async def skip(self, user:di.User):
+        """skip the turn of a player
+
+        Args:
+            user (di.User): the user
+
+        Raises:
+            NotInGame: if the player is not in a game
+            GameNotStarted: if the game is not yet started
+            NotYourRole: if the Player is a spy
+            NotYourTurn: if it's not a Player turn
+            NotYourTurn: if it's not the team of the user that play
+            NoWordFound: if the player didn't found any word
+        """
+        if user.id not in self.player_list:
+            raise NotInGame()
+        
+        if self.state == State.WAITING:
+            raise GameNotStarted()
+        
+        player:Player = self.player_list[user.id]
+
+        if player.isSpy:
+            raise NotYourRole()
+        
+        if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
+            raise NotYourTurn("it's up to the spies to play") # TODO message
+        
+        if self.state.color() != player.team_color:
+            raise NotYourTurn("it's not your team's turn")
+
+        if not self.one_word_found:
+            raise NoWordFound()
+
+        self.next_state()
+
+    async def generate_grids(self):
+        taskSpy = asyncio.get_event_loop().create_task(
+            grid_generator.generateGrid(
+            self.card_grid, isSpy=False, channel_id=self.channel_id
+        ))
+        taskPlayer = asyncio.get_event_loop().create_task(
+            grid_generator.generateGrid(
+            self.card_grid, isSpy=True, channel_id=self.channel_id
+        ))
+
+        await asyncio.wait([taskSpy, taskPlayer])
+
+    def create_grid(self):
+        asyncio.get_event_loop().run_until_complete(self.generate_grids())
+        
+
+
+        
+
+        
+        
+        
+
+
+        
+
+        
 
 
 
