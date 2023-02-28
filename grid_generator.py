@@ -24,7 +24,7 @@ CANVAS = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
 
 IMAGE = Image.open('images/BASE.png')
 
-def addTextTo(img, text:str):
+async def addTextTo(img, text:str):
     # remove or replace special characters
     text_u = unidecode.unidecode(text).upper()
 
@@ -48,7 +48,7 @@ def addTextTo(img, text:str):
 
 
 
-def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
+async def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
     # get the value of the color, used in files like "RED_FIND.png"
     color_name = color.value
 
@@ -75,7 +75,7 @@ def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
 
 
 
-def generateGrid(card_grid:CardGrid, isSpy:bool):
+async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
 
     # Loop on the 25 cards
     for i in range(5):
@@ -100,7 +100,7 @@ def generateGrid(card_grid:CardGrid, isSpy:bool):
 
 
 
-    CANVAS.save("canvas.png")
+    CANVAS.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
 
 cardGrid = CardGrid(language=Language.FR)
