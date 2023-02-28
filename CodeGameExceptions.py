@@ -27,7 +27,7 @@ class WordInGrid(Exception):
     pass
 
 class WrongHintNumberGiven(Exception):
-    "Raised when the number of hint given is not superior to 0"
+    "Raised when the number of hint given is not superior or equal to 0"
     pass
 
 class WordNotInGrid(Exception):
@@ -42,3 +42,11 @@ class NoWordFound(Exception):
     "Raised when a User try to skip without having found (proposed) any word"
     pass
 
+class NotGameCreator(Exception):
+    "Raised when a User try to start a game that they did not create"
+    pass
+class NotYourRole(Exception):
+    "Raised when a User try to use a command not intended for its role"
+
+class GameNotStarted(Exception):
+    "Raised when a command is used but the game is not yet started"
