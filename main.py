@@ -23,6 +23,13 @@ def players_turn_message(game:Game) -> str:
         \nHint: `{game.last_word_suggested}`\nNumber of try remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
         \n`/guess` to guess a word of the color of your team"
 
+def get_display_button() -> list[interactions.Button]:
+    return [interactions.Button(
+            custom_id="display_button_id",
+            style=interactions.ButtonStyle.SUCCESS,
+            label="DISPLAY GRID",
+        )]
+
 def state_message(game:Game) -> str:
 
     match game.state:
@@ -35,6 +42,15 @@ def state_message(game:Game) -> str:
         case State.BLUE_WIN | State.RED_WIN:
             return f"{game.state.color().value} TEAM WIN!"
 
+def state_component(game:Game) -> list[interactions.Button] | None:
+    match game.state:
+        case State.WAITING:
+            return get_join_buttons()
+        case State.BLUE_SPY | State.RED_SPY:
+            return get_display_button()
+        case _:
+            return None
+
 
 @bot.user_command(name="User Command")
 async def test(ctx: interactions.CommandContext):
@@ -43,6 +59,7 @@ async def test(ctx: interactions.CommandContext):
 
 
 @bot.command()
+@bot.component("display_button_id")
 async def display(ctx: interactions.CommandContext):
     """Display the grid depending on your role"""
     try:
@@ -80,6 +97,11 @@ def get_join_buttons() -> list[interactions.Button]:
             style=interactions.ButtonStyle.SECONDARY,
             label=f"LEAVE GAME",
         ),
+        interactions.Button(
+            custom_id="start_button_id",
+            style=interactions.ButtonStyle.SUCCESS,
+            label=f"START GAME",
+        ),
         ]
 
 @bot.command()
@@ -98,7 +120,7 @@ async def create(ctx: interactions.CommandContext, language:str):
     lang = Language.FR if language == Language.FR.value else Language.EN
     try:
         game = await GAME_LIST.create_game(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
-        await ctx.send(content=get_create_message(game), components=get_join_buttons())
+        await ctx.send(content=get_create_message(game), components=state_component(game))
     except GameInChannelAlreadyCreated:
         await ctx.send("A game is already created in this channel", ephemeral=True)
 
@@ -177,6 +199,7 @@ async def leave(ctx: interactions.CommandContext):
         await ctx.send("The game has already started")
 
 @bot.command()
+@bot.component("start_button_id")
 async def start(ctx: interactions.CommandContext):
     """Start the game of Code Names"""
     try:
@@ -189,7 +212,7 @@ async def start(ctx: interactions.CommandContext):
                        \n🔴 {ColorCard.RED.value} SPY: <@{game.spies[ColorCard.RED].user.id}>", 
                        files=image
         )
-        await ctx.send(state_message(game))
+        await ctx.send(state_message(game), components=state_component(game))
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except NotGameCreator:
@@ -208,7 +231,7 @@ async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int)
         game = await GAME_LIST.get_game(ctx.channel_id)
         await game.suggest(ctx.user, hint, number_of_try)
 
-        await ctx.send(state_message(game))
+        await ctx.send(state_message(game), components=state_component(game))
 
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
@@ -259,7 +282,7 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
             return
         image = interactions.File(game.get_image_path())
         await ctx.send(f"The word {word_found} was {card_color.value}", files=image)
-        await ctx.send(state_message(game))
+        await ctx.send(state_message(game), components=state_component(game))
         if game.state in [State.BLUE_WIN, State.RED_WIN]:
             await GAME_LIST.delete_game(game.channel_id)
     except GameNotFound:
