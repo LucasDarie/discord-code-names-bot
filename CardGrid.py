@@ -26,7 +26,7 @@ class CardGrid(object):
         self.card_list:list[list[Card]] = [[Card(word_list[i*GRID_SIZE+j], ColorCard.WHITE) for j in range(GRID_SIZE)] for i in range(GRID_SIZE)]
         self.language: Language = language
         self.starting_team_color:ColorCard = starting_team_color
-        self.remaining_words_count:dict[ColorCard:int] = {ColorCard.BLUE:0, ColorCard.RED:0, ColorCard.BLACK:0}
+        self.remaining_words_count:dict[ColorCard,int] = {ColorCard.BLUE:0, ColorCard.RED:0, ColorCard.BLACK:0, ColorCard.WHITE:(GRID_SIZE**2)-9-8-1}
         
         opponent_team = ColorCard.BLUE if starting_team_color == ColorCard.RED else ColorCard.RED
 
@@ -90,7 +90,7 @@ class CardGrid(object):
         """
         return not self.get_card_by_word(word) == None
 
-    def find(self, word:str) -> ColorCard:
+    def find(self, word:str) -> tuple[ColorCard, str]:
         """set a card associate to a word to finded if the word is in the grid
 
         Args:
@@ -107,7 +107,8 @@ class CardGrid(object):
             raise WordNotInGrid()
         
         card.finded = True
-        return card.color
+        self.remaining_words_count[card.color] -= 1
+        return (card.color, card.word)
 
 
     
