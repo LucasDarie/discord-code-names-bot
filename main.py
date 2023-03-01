@@ -18,6 +18,24 @@ bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID)
 GAME_LIST = GameList()
 
 
+def players_turn_message(game:Game) -> str:
+    return f"{game.state.color().value} PLAYERS turn: {[f'<@{p.user.id}>' for p in game.teams[game.state.color()] if not p.isSpy]}\
+        \nHint: `{game.last_word_suggested}`\nNumber of try remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
+        \n`/find` to guess a word of the color of your team"
+
+def state_message(game:Game) -> str:
+
+    match game.state:
+        case State.WAITING:
+            return "Waiting for game creator to start the game"
+        case State.BLUE_SPY | State.RED_SPY:
+            return f"{game.state.color().value} SPY's turn : <@{game.spies[game.state.color()].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
+        case State.BLUE_PLAYER | State.RED_PLAYER:
+            return players_turn_message(game)
+        case State.BLUE_WIN | State.RED_WIN:
+            return f"{game.state.color().value} TEAM WIN!"
+
+
 @bot.user_command(name="User Command")
 async def test(ctx: interactions.CommandContext):
     await ctx.send(f"You have applied a command onto user {ctx.target.user.username}!")
@@ -166,12 +184,12 @@ async def start(ctx: interactions.CommandContext):
         await game.start(ctx.user.id)
         color = game.starting_team_color
         image = interactions.File(game.get_image_path())
-        blue_spy, red_spy = game.spies
         await ctx.send(f"Let's begin! {color.value} TEAM STARTS!\
-                       \n🔵 {ColorCard.BLUE.value} SPY: <@{blue_spy.user.id}>\
-                       \n🔴 {ColorCard.RED.value} SPY: <@{red_spy.user.id}>", 
+                       \n🔵 {ColorCard.BLUE.value} SPY: <@{game.spies[ColorCard.BLUE].user.id}>\
+                       \n🔴 {ColorCard.RED.value} SPY: <@{game.spies[ColorCard.RED].user.id}>", 
                        files=image
         )
+        await ctx.send(state_message(game))
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except NotGameCreator:
@@ -188,9 +206,9 @@ async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int)
     """Suggest a hint to help your team to find words. Provide also a number of try"""
     try:
         game = await GAME_LIST.get_game(ctx.channel_id)
-        (word, number) = await game.suggest(ctx.user, hint, number_of_try)
+        await game.suggest(ctx.user, hint, number_of_try)
 
-        await ctx.send(f"{ctx.user.username} suggest :\nHint: `{word}`\nNumber of try: `{number}`")
+        await ctx.send(state_message(game))
 
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
@@ -241,9 +259,8 @@ async def find_by_func(ctx: interactions.CommandContext, word:str=None, card_id:
             return
         image = interactions.File(game.get_image_path())
         await ctx.send(f"The word {word_found} was {card_color.value}", files=image)
-
+        await ctx.send(state_message(game))
         if game.state in [State.BLUE_WIN, State.RED_WIN]:
-            await ctx.send(f"{game.state.color().value} TEAM WIN!")
             await GAME_LIST.delete_game(game.channel_id)
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
@@ -279,5 +296,7 @@ async def skip(ctx: interactions.CommandContext):
         await ctx.send(f"{e}", ephemeral=True)
     except NoWordFound:
         await ctx.send("You must find at least one word in the grid", ephemeral=True)
+    
+
 
 bot.start()
