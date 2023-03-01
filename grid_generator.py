@@ -48,27 +48,27 @@ def addTextTo(img, text:str):
 
 
 
-def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
-    # get the value of the color, used in files like "RED_FIND.png"
+def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
+    # get the value of the color, used in files like "RED_guess.png"
     color_name = color.value
 
     # create a transparent canvas with img size and paste img
     canvas = Image.new('RGBA', img.size, (0, 0, 0, 0))
     canvas.paste(img, (0, 0))
 
-    if isSpy and not finded:
+    if isSpy and not guessed:
         if color != ColorCard.WHITE:
             img2 = Image.open(f'images/{color_name}.png')
             canvas.paste(img2, (0, 0), img2)
 
-    elif finded:
+    elif guessed:
         # white base is equal to BASE.png so nothing to add
         if color != ColorCard.WHITE:
             img2 = Image.open(f'images/{color_name}.png')
             canvas.paste(img2, (0, 0), img2)
-        # black does not exist because when it is finded the party is finished
+        # black does not exist because when it is guessed the party is finished
         if color != ColorCard.BLACK:
-            img3 = Image.open(f'images/{color_name}_FIND.png')
+            img3 = Image.open(f'images/{color_name}_guess.png')
             canvas.paste(img3, (0, 0), img3)
 
     return canvas
@@ -91,9 +91,9 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
             
             img_with_text = addTextTo(image, card.word)
 
-            # add the layer depending on the color, finded state and isSpy booleans
+            # add the layer depending on the color, guessed state and isSpy booleans
 
-            img_with_color = getImageColored(img_with_text, color=card.color, finded=card.finded, isSpy=isSpy)
+            img_with_color = getImageColored(img_with_text, color=card.color, guessed=card.guessed, isSpy=isSpy)
             
             # paste the card to the canvas grid
             CANVAS.paste(img_with_color, (x, y), img_with_color)

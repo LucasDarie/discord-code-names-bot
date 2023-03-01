@@ -39,7 +39,7 @@ class WrongCardIdNumberGiven(Exception):
     pass
 
 class NoWordFound(Exception):
-    "Raised when a User try to skip without having found (proposed) any word"
+    "Raised when a User try to skip without having guessed any word"
     pass
 
 class NotGameCreator(Exception):

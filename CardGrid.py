@@ -69,11 +69,11 @@ class CardGrid(object):
         i = 0
         j = 0
         k = 0
-        while(k < GRID_SIZE**2 and (self.card_list[i][j].finded or self.card_list[i][j].word != word)):
+        while(k < GRID_SIZE**2 and (self.card_list[i][j].guessed or self.card_list[i][j].word != word)):
             k += 1
             j = k%GRID_SIZE
             i = k//GRID_SIZE
-        # exit : k >= GRID_SIZE**2 or (not self.card_list[i][j].finded and self.card_list[i][j].word == word)
+        # exit : k >= GRID_SIZE**2 or (not self.card_list[i][j].guessed and self.card_list[i][j].word == word)
 
         if k < GRID_SIZE**2:
             return self.card_list[i][j]
@@ -90,8 +90,8 @@ class CardGrid(object):
         """
         return not self.get_card_by_word(word) == None
 
-    def find(self, word:str) -> tuple[ColorCard, str]:
-        """set a card associate to a word to finded if the word is in the grid
+    def guess(self, word:str) -> tuple[ColorCard, str]:
+        """set a card associate to a word to guessed if the word is in the grid
 
         Args:
             word (str): a single word
@@ -100,13 +100,13 @@ class CardGrid(object):
             WordNotInGrid: if the word is not present in the grid
 
         Returns:
-            ColorCard: the color of the finded card
+            ColorCard: the color of the guessed card
         """
         card = self.get_card_by_word(word)
         if card == None :
             raise WordNotInGrid()
         
-        card.finded = True
+        card.guessed = True
         self.remaining_words_count[card.color] -= 1
         return (card.color, card.word)
 

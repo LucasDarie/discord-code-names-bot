@@ -21,7 +21,7 @@ GAME_LIST = GameList()
 def players_turn_message(game:Game) -> str:
     return f"{game.state.color().value} PLAYERS turn: {[f'<@{p.user.id}>' for p in game.teams[game.state.color()] if not p.isSpy]}\
         \nHint: `{game.last_word_suggested}`\nNumber of try remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
-        \n`/find` to guess a word of the color of your team"
+        \n`/guess` to guess a word of the color of your team"
 
 def state_message(game:Game) -> str:
 
@@ -200,10 +200,10 @@ async def start(ctx: interactions.CommandContext):
         await ctx.send("Both teams need to have at least 2 players each", ephemeral=True)
 
 @bot.command()
-@interactions.option(description="A hint that will help your teammates to find the words of your color. Use `/rules` for more info")
-@interactions.option(description="The number of tries your teammates will have to find the words")
+@interactions.option(description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info")
+@interactions.option(description="The number of tries your teammates will have to guess the words")
 async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int):
-    """Suggest a hint to help your team to find words. Provide also a number of try"""
+    """Suggest a hint to help your team to guess words. Provide also a number of try"""
     try:
         game = await GAME_LIST.get_game(ctx.channel_id)
         await game.suggest(ctx.user, hint, number_of_try)
@@ -228,31 +228,31 @@ async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int)
 
 
 @bot.command()
-async def find(ctx: interactions.CommandContext):
+async def guess(ctx: interactions.CommandContext):
     """This description isn't seen in UI (yet?)"""
     pass
 
-@find.subcommand()
-@interactions.option(description="Find a word by using the suggested hint")
+@guess.subcommand()
+@interactions.option(description="guess a word by using the suggested hint")
 async def word(ctx: interactions.CommandContext, word: str):
     """Propose a word present in the grid"""
-    await find_by_func(ctx=ctx, word=word)
+    await guess_by_func(ctx=ctx, word=word)
     
 
-@find.subcommand()
+@guess.subcommand()
 @interactions.option(description="A descriptive description")
 async def card_id(ctx: interactions.CommandContext, card_id: int):
     """Propose a word card number present in the grid"""
-    await find_by_func(ctx=ctx, card_id=card_id)
+    await guess_by_func(ctx=ctx, card_id=card_id)
 
 
-async def find_by_func(ctx: interactions.CommandContext, word:str=None, card_id:int=None):
+async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id:int=None):
     try:
         game = await GAME_LIST.get_game(ctx.channel_id)
         if word == None and card_id != None:
-            (card_color, word_found) = await game.find_by_card_id(ctx.user, card_id)
+            (card_color, word_found) = await game.guess_by_card_id(ctx.user, card_id)
         elif word != None and card_id == None:
-            (card_color, word_found) = await game.find_by_word(ctx.user, word)
+            (card_color, word_found) = await game.guess_by_word(ctx.user, word)
         else:
             # can't happen
             await ctx.send("An error occured. Try again")
@@ -295,7 +295,7 @@ async def skip(ctx: interactions.CommandContext):
     except NotYourTurn as e:
         await ctx.send(f"{e}", ephemeral=True)
     except NoWordFound:
-        await ctx.send("You must find at least one word in the grid", ephemeral=True)
+        await ctx.send("You must guess at least one word in the grid", ephemeral=True)
     
 
 

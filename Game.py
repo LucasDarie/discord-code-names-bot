@@ -282,10 +282,10 @@ class Game(object):
 
         return (self.last_word_suggested, self.last_number_hint)
     
-    async def find_by_card_id(self, user:di.User, card_id:int) -> tuple[ColorCard, str]:
-        """porposed a card id in the grid to find a word
+    async def guess_by_card_id(self, user:di.User, card_id:int) -> tuple[ColorCard, str]:
+        """porposed a card id in the grid to guess a word
 
-        then call find_by_word(self, user:di.User, word:str)
+        then call guess_by_word(self, user:di.User, word:str)
 
         Args:
             user (di.User): the user that run the command
@@ -300,14 +300,14 @@ class Game(object):
             WrongCardIdNumberGiven: _description_
 
         Returns:
-            tuple[ColorCard, str]: the color of the finded card and the word
+            tuple[ColorCard, str]: the color of the guessed card and the word
         """
         # can raise WrongCardIdNumberGiven
         word = self.card_grid.get_word_by_number(card_id)
         # can raise the other Exceptions mentioned in the doc
-        return await self.find_by_word(user, word)
+        return await self.guess_by_word(user, word)
     
-    async def find_by_word(self, user:di.User, word:str) -> tuple[ColorCard, str]:
+    async def guess_by_word(self, user:di.User, word:str) -> tuple[ColorCard, str]:
         """proposed a word in the grid
 
         Args:
@@ -323,7 +323,7 @@ class Game(object):
             WordNotInGrid: if the word is not present in the grid
 
         Returns:
-            tuple[ColorCard, str]: the color of the finded card and the word
+            tuple[ColorCard, str]: the color of the guessed card and the word
         """
         if user.id not in self.player_list:
             raise NotInGame()
@@ -344,8 +344,8 @@ class Game(object):
 
         try:
             newWord = unidecode.unidecode(word).upper().split(" ")[0]
-            (color, word_found) = self.card_grid.find(newWord) # can raise WordNotInGrid
-            # find a wrong color
+            (color, word_found) = self.card_grid.guess(newWord) # can raise WordNotInGrid
+            # guess a wrong color
             if color != player.team_color:
                 self.next_state()
             # one or more proposition left

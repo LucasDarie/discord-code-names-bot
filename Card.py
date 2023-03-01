@@ -5,13 +5,13 @@ class Card(object):
         super(Card, self).__init__()
         
         self.word: str = word
-        self.finded:bool = False
+        self.guessed:bool = False
         self.color:ColorCard = color
 
     def __str__(self) -> str:
-        return f"{self.word}, {self.color.value}, {self.finded}"
+        return f"{self.word}, {self.color.value}, {self.guessed}"
     
     def __repr__(self) -> str:
-        return f"{{{self.word}, {self.color.value}, {self.finded}}}"
+        return f"{{{self.word}, {self.color.value}, {self.guessed}}}"
         
         
