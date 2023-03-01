@@ -18,7 +18,6 @@ class State(enum.Enum):
     RED_SPY = 4
     RED_PLAYER = 5
     RED_WIN = 6
-    FINISHED = 7
 
     def color(self) -> ColorCard | None:
         """return the color of the team associate to each state, if no color is associate return None
@@ -66,14 +65,13 @@ class Game(object):
         self.card_grid = CardGrid(language=language, starting_team_color=self.starting_team_color)
         self.state : State = State.WAITING
         self.player_list: dict[str, Player] = {}
-        self.spies: tuple[Player, Player] # (blue, red)
+        self.spies: dict[ColorCard, Player] = {}
         self.teams:dict[ColorCard, list[Player]] = {ColorCard.BLUE:[], ColorCard.RED:[]}
         self.last_word_suggested:str = ""
         self.last_number_hint:int = 0
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
-
-
+    
     async def join(self, user: di.User, team_color: ColorCard):
         """add a user to the game. 
             If the Player is already in the game, switch there team color.
@@ -154,10 +152,7 @@ class Game(object):
                     self.state = winner
 
             case State.RED_WIN | State.BLUE_WIN:
-                self.state = State.FINISHED
-
-            case State.FINISHED :
-                self.state = State.WAITING # TODO Change this
+                pass
 
     def who_won(self) -> State | None:
         """return the State of the team that win if it the case, else return None
@@ -201,9 +196,10 @@ class Game(object):
         """
         blue_spy:Player = random.choice(self.teams[ColorCard.BLUE])
         red_spy:Player = random.choice(self.teams[ColorCard.RED])
-        self.spies = (blue_spy, red_spy)
         blue_spy.isSpy = True
         red_spy.isSpy = True
+        self.spies[ColorCard.BLUE] = blue_spy
+        self.spies[ColorCard.RED] = red_spy
 
     async def start(self, creator_id:str):
         """Starts a new game if the creator_id is the same as the User that create the game
