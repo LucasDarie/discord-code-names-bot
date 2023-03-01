@@ -24,7 +24,7 @@ CANVAS = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
 
 IMAGE = Image.open('images/BASE.png')
 
-async def addTextTo(img, text:str):
+def addTextTo(img, text:str):
     # remove or replace special characters
     text_u = unidecode.unidecode(text).upper()
 
@@ -48,7 +48,7 @@ async def addTextTo(img, text:str):
 
 
 
-async def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
+def getImageColored(img, color: ColorCard, finded:bool, isSpy:bool=False):
     # get the value of the color, used in files like "RED_FIND.png"
     color_name = color.value
 
