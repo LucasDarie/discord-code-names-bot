@@ -47,6 +47,8 @@ class NotGameCreator(Exception):
     pass
 class NotYourRole(Exception):
     "Raised when a User try to use a command not intended for its role"
+    pass
 
 class GameNotStarted(Exception):
     "Raised when a command is used but the game is not yet started"
+    pass
