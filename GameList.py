@@ -2,6 +2,7 @@ from CardGrid import CardGrid
 from Game import Game
 from Language import Language
 from CodeGameExceptions import GameInChannelAlreadyCreated, GameNotFound
+import os
 
 class GameList(object):
     def __init__(self) -> None:
@@ -39,6 +40,8 @@ class GameList(object):
         """
         if channel_id not in self.game_list:
             raise GameNotFound()
+        # remove files
+        [os.remove(os.path.join('render/', filename)) for filename in os.listdir('render/') if filename.startswith(f'{channel_id}') and filename.endswith('.png')]
         self.game_list.pop(channel_id)
     
     async def get_game(self, channel_id:str) -> Game:
