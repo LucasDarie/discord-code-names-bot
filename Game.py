@@ -231,12 +231,12 @@ class Game(object):
         self.next_state()
 
     async def suggest(self, user:di.User, word:str, number:int) -> tuple[str, int]:
-        """suggest a word and a number of try for a spy
+        """suggest a word and a number of tries for a spy
 
         Args:
             user (di.User): the user that run the command
             word (str): the word given by the spy user
-            number (int): the number of try given by the spy user
+            number (int): the number of tries given by the spy user
 
         Raises:
             NotInGame: if the player is not in a game
@@ -267,7 +267,7 @@ class Game(object):
         if self.state.color() != player.team_color:
             raise NotYourTurn("it's not your team's turn")
         
-        if number < 0:
+        if number <= 0:
             raise WrongHintNumberGiven()
         
         # remove or replace special characters and keep only the first word in the possible sentence

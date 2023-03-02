@@ -49,7 +49,7 @@ def addTextTo(img, text:str):
 
 
 def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
-    # get the value of the color, used in files like "RED_guess.png"
+    # get the value of the color, used in files like "RED_GUESS.png"
     color_name = color.value
 
     # create a transparent canvas with img size and paste img
@@ -68,7 +68,7 @@ def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
             canvas.paste(img2, (0, 0), img2)
         # black does not exist because when it is guessed the party is finished
         if color != ColorCard.BLACK:
-            img3 = Image.open(f'images/{color_name}_guess.png')
+            img3 = Image.open(f'images/{color_name}_GUESS.png')
             canvas.paste(img3, (0, 0), img3)
 
     return canvas

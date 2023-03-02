@@ -13,21 +13,28 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
-bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID)
+bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
 
 GAME_LIST = GameList()
 
 
 def players_turn_message(game:Game) -> str:
-    return f"{game.state.color().value} PLAYERS turn: {[f'<@{p.user.id}>' for p in game.teams[game.state.color()] if not p.isSpy]}\
-        \nHint: `{game.last_word_suggested}`\nNumber of try remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
-        \n`/guess` to guess a word of the color of your team"
+    return f"{game.state.color().value} PLAYERS' turn: {[f'<@{p.user.id}>' for p in game.teams[game.state.color()] if not p.isSpy]}\
+        \nHint: `{game.last_word_suggested}`\nNumber of tries remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
+        \n`/guess` to guess a word of your team's color"
 
 def get_display_button() -> list[interactions.Button]:
     return [interactions.Button(
             custom_id="display_button_id",
             style=interactions.ButtonStyle.SUCCESS,
             label="DISPLAY GRID",
+        )]
+
+def get_skip_button() -> list[interactions.Button]:
+    return [interactions.Button(
+            custom_id="skip_button_id",
+            style=interactions.ButtonStyle.SUCCESS,
+            label="SKIP",
         )]
 
 def state_message(game:Game) -> str:
@@ -48,6 +55,8 @@ def state_component(game:Game) -> list[interactions.Button] | None:
             return get_join_buttons()
         case State.BLUE_SPY | State.RED_SPY:
             return get_display_button()
+        case State.BLUE_PLAYER | State.RED_PLAYER:
+            return get_skip_button()
         case _:
             return None
 
@@ -299,14 +308,14 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
         await ctx.send("The the provided is not in the grid", ephemeral=True)
 
 @bot.command()
+@bot.component("skip_button_id")
 async def skip(ctx: interactions.CommandContext):
     """End the player turn if at least one word is proposed"""
     try:
         game = await GAME_LIST.get_game(ctx.channel_id)
         await game.skip(ctx.user)
-        color = game.starting_team_color
-        image = interactions.File(game.get_image_path())
-        await ctx.send(f"{ctx.user.username} have skipped their turn...")
+        await ctx.send(f"{ctx.user.username} skipped their turn...")
+        await ctx.send(state_message(game), components=state_component(game))
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except GameNotStarted:
