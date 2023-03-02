@@ -1,12 +1,14 @@
 import unidecode
 from PIL import Image, ImageDraw, ImageFont
 from ColorCard import ColorCard
-from CardGrid import CardGrid
+from CardGrid import CardGrid, GRID_SIZE
 from Language import Language
+import asyncio
 
 # Font used
 
 FONT = 'font/KeepCalm.ttf'
+
 
 # Height and width of cards
 CARD_HEIGHT = 430
@@ -16,17 +18,18 @@ CARD_WIDTH = 660
 PADDING = 10
 
 # height ands width of the final grid
-HEIGHT = (CARD_HEIGHT + PADDING) * 5
-WIDTH = (CARD_WIDTH + PADDING) * 5
+HEIGHT = (CARD_HEIGHT + PADDING) * GRID_SIZE
+WIDTH = (CARD_WIDTH + PADDING) * GRID_SIZE
 
 # Créer une image noire
 CANVAS = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
 
 IMAGE = Image.open('images/BASE.png')
 
-def addTextTo(img, text:str):
+def addTextTo(img, text:str, card_id:int):
     # remove or replace special characters
     text_u = unidecode.unidecode(text).upper()
+    card_id_str = f"#{card_id}"
 
     # create a drawing interface to add text
     draw = ImageDraw.Draw(img)
@@ -39,10 +42,17 @@ def addTextTo(img, text:str):
     text_height = bottom - top
     text_width = draw.textlength(text_u, font)
 
-    # place the text and draw it on the card
-    x = (CARD_WIDTH - text_width) / 2
-    y = (CARD_HEIGHT) / 2 + text_height - 4
-    draw.text((x, y), text_u, font=font, fill=(0, 0, 0, 255))
+    # place the word text and draw it on the card
+    x_text = (CARD_WIDTH - text_width) / 2
+    y_text = (CARD_HEIGHT) / 2 + text_height - 4
+    draw.text((x_text, y_text), text_u, font=font, fill=(0, 0, 0, 255), )
+
+
+    # place the card_id text and draw it on the card
+    
+    x_card_id = 70
+    y_card_id = 120
+    draw.text((x_card_id, y_card_id), card_id_str, font=font, fill=(90, 90, 90, 255))
 
     return img
 
@@ -78,8 +88,8 @@ def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
 async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
 
     # Loop on the 25 cards
-    for i in range(5):
-        for j in range(5):
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
             image = IMAGE.copy()
             card = card_grid.card_list[i][j]
 
@@ -89,7 +99,7 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
 
             # add text to the image
             
-            img_with_text = addTextTo(image, card.word)
+            img_with_text = addTextTo(image, card.word, card_id=(i*GRID_SIZE+j+1))
 
             # add the layer depending on the color, guessed state and isSpy booleans
 
@@ -99,9 +109,18 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
             CANVAS.paste(img_with_color, (x, y), img_with_color)
 
 
+    c = CANVAS.reduce(2)
+    c.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
-    CANVAS.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
 
-# cardGrid = CardGrid(language=Language.FR)
-# generateGrid(cardGrid, isSpy=True)
+if __name__ == "__main__":
+    cardGrid = CardGrid(language=Language.FR, starting_team_color=ColorCard.BLUE)
+    cardGrid.card_list[0][0].guessed = True
+    cardGrid.card_list[3][2].guessed = True
+    cardGrid.card_list[0][4].guessed = True
+    cardGrid.card_list[3][0].guessed = True
+    cardGrid.card_list[2][0].guessed = True
+    cardGrid.card_list[0][0].guessed = True
+    cardGrid.card_list[0][0].guessed = True
+    asyncio.run(generateGrid(cardGrid, isSpy=True, channel_id="123456789"))
