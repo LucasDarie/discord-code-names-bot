@@ -17,9 +17,21 @@ bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=inte
 
 GAME_LIST = GameList()
 
+def get_team_message(game:Game, color:ColorCard, withSpy:bool=True) -> str:
+    """return the list of player in a specific team 
+
+    Args:
+        game (Game): the game
+        color (ColorCard): the team's color
+        withSpy (bool, optional): chose to display or not the spy of the team. Defaults to True.
+
+    Returns:
+        str: the list of player @ for discord uses, seperatded by commas
+    """
+    return str([f"<@{p.user.id}>" for p in game.teams[color] if withSpy or not p.isSpy]).translate({ord('['):None, ord('\''):None, ord(']'):None})
 
 def players_turn_message(game:Game) -> str:
-    return f"{game.state.color().value} PLAYERS' turn: {[f'<@{p.user.id}>' for p in game.teams[game.state.color()] if not p.isSpy]}\
+    return f"{game.state.color().display()} PLAYERS' turn: {get_team_message(game, game.state.color(), withSpy=False)}\
         \nHint: `{game.last_word_suggested}`\nNumber of tries remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
         \n`/guess` to guess a word of your team's color"
 
@@ -31,11 +43,12 @@ def get_display_button() -> list[interactions.Button]:
         )]
 
 def get_skip_button() -> list[interactions.Button]:
-    return [interactions.Button(
-            custom_id="skip_button_id",
-            style=interactions.ButtonStyle.SUCCESS,
-            label="SKIP",
-        )]
+        return [interactions.Button(
+                custom_id="skip_button_id",
+                style=interactions.ButtonStyle.SUCCESS,
+                label="SKIP",
+            )]
+
 
 def state_message(game:Game) -> str:
 
@@ -43,11 +56,13 @@ def state_message(game:Game) -> str:
         case State.WAITING:
             return "Waiting for game creator to start the game"
         case State.BLUE_SPY | State.RED_SPY:
-            return f"{game.state.color().value} SPY's turn : <@{game.spies[game.state.color()].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
+            return f"{game.state.color().display()} SPY's turn : <@{game.spies[game.state.color()].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
         case State.BLUE_PLAYER | State.RED_PLAYER:
             return players_turn_message(game)
         case State.BLUE_WIN | State.RED_WIN:
-            return f"{game.state.color().value} TEAM WIN!"
+            return f"{game.state.color().display()} TEAM WIN! GG {get_team_message(game, color=game.state.color())}"
+
+
 
 def state_component(game:Game) -> list[interactions.Button] | None:
     match game.state:
@@ -56,7 +71,9 @@ def state_component(game:Game) -> list[interactions.Button] | None:
         case State.BLUE_SPY | State.RED_SPY:
             return get_display_button()
         case State.BLUE_PLAYER | State.RED_PLAYER:
-            return get_skip_button()
+            # don't display skip button after /suggest message
+            if game.one_word_found:
+                return get_skip_button()
         case _:
             return None
 
@@ -84,10 +101,15 @@ async def display(ctx: interactions.CommandContext):
     except FileNotFoundError:
         await ctx.send("Error : Image not found")
 
+
+
 def get_create_message(game:Game):
-    return f"({game.language.value}) Game created by <@{game.creator_id}>\
-                \n{ColorCard.BLUE.value} team : {[p.user.username for p in game.teams[ColorCard.BLUE]]}\
-                \n{ColorCard.RED.value} team : {[p.user.username for p in game.teams[ColorCard.RED]]}"
+    return f"[{str(game.language.value).upper()}] {game.language.display()} Game created by <@{game.creator_id}>\
+                \n\
+                \n{ColorCard.BLUE.display()} team : {get_team_message(game, color=ColorCard.BLUE)}\
+                \n{ColorCard.RED.display()} team : {get_team_message(game, color=ColorCard.RED)}"
+
+
 
 def get_join_buttons() -> list[interactions.Button]:
     return [
@@ -111,7 +133,9 @@ def get_join_buttons() -> list[interactions.Button]:
             style=interactions.ButtonStyle.SUCCESS,
             label=f"START GAME",
         ),
-        ]
+    ]
+
+
 
 @bot.command()
 @interactions.option(
@@ -133,6 +157,8 @@ async def create(ctx: interactions.CommandContext, language:str):
     except GameInChannelAlreadyCreated:
         await ctx.send("A game is already created in this channel", ephemeral=True)
 
+
+
 @bot.command()
 async def delete(ctx: interactions.CommandContext):
     """Create a game of Code Names"""
@@ -153,9 +179,9 @@ async def join_team(
         await game.join(ctx.user, team_color=color)
         if(message != None):
             await message.edit(content=get_create_message(game), components=get_join_buttons())
-            await ctx.send(f"You joined the {color.value} team !", ephemeral=True)
+            await ctx.edit(ctx.message.content)
         else:
-            await ctx.send(f"{ctx.user.username} join the {color.value} team !")
+            await ctx.send(f"{ctx.user.username} join the {color.display()} team !")
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except GameAlreadyStarted:
@@ -170,17 +196,21 @@ async def join_team(
     name="team",
     required=True,
     choices=[
-        interactions.Choice(name="🔵 BLUE", value=ColorCard.BLUE.value),
-        interactions.Choice(name="🔴 RED", value=ColorCard.RED.value)
+        interactions.Choice(name="BLUE", value=ColorCard.BLUE.value),
+        interactions.Choice(name="RED", value=ColorCard.RED.value)
     ] 
 )
 async def join(ctx: interactions.CommandContext, team:str):
     """Join a game of Code Names"""
     await join_team(ctx, team)
 
+
+
 @bot.component("red_join_button_id")
 async def on_login_red_click(ctx:interactions.ComponentContext):
     await join_team(ctx, team=ColorCard.RED.value, message=ctx.message)
+
+
 
 @bot.component("blue_join_button_id")
 async def on_login_blue_click(ctx:interactions.CommandContext):
@@ -207,6 +237,8 @@ async def leave(ctx: interactions.CommandContext):
     except GameAlreadyStarted:
         await ctx.send("The game has already started")
 
+
+
 @bot.command()
 @bot.component("start_button_id")
 async def start(ctx: interactions.CommandContext):
@@ -215,13 +247,18 @@ async def start(ctx: interactions.CommandContext):
         game = await GAME_LIST.get_game(ctx.channel_id)
         await game.start(ctx.user.id)
         color = game.starting_team_color
+        start_message = "🔲 `STARTS`"
         image = interactions.File(game.get_image_path())
-        await ctx.send(f"Let's begin! {color.value} TEAM STARTS!\
-                       \n🔵 {ColorCard.BLUE.value} SPY: <@{game.spies[ColorCard.BLUE].user.id}>\
-                       \n🔴 {ColorCard.RED.value} SPY: <@{game.spies[ColorCard.RED].user.id}>", 
-                       files=image
+        await ctx.send(f"The `Code Names` game is starting LET'S GOOO!\
+                       \n\
+                       \n{ColorCard.BLUE.display()} SPY: <@{game.spies[ColorCard.BLUE].user.id}>{start_message if color == ColorCard.BLUE else ''}\
+                       \n{ColorCard.RED.display()} SPY: <@{game.spies[ColorCard.RED].user.id}>{start_message if color == ColorCard.RED else ''}\
+                       \n\
+                       \n{state_message(game)}",
+                    components=state_component(game),
+                    files=image
         )
-        await ctx.send(state_message(game), components=state_component(game))
+        # await ctx.send(state_message(game), components=state_component(game))
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except NotGameCreator:
@@ -230,6 +267,8 @@ async def start(ctx: interactions.CommandContext):
         await ctx.send("The game has already started", ephemeral=True)
     except NotEnoughPlayerInTeam:
         await ctx.send("Both teams need to have at least 2 players each", ephemeral=True)
+
+
 
 @bot.command()
 @interactions.option(description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info")
@@ -289,11 +328,18 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
             # can't happen
             await ctx.send("An error occured. Try again")
             return
-        image = interactions.File(game.get_image_path())
-        await ctx.send(f"The word {word_found} was {card_color.value}", files=image)
-        await ctx.send(state_message(game), components=state_component(game))
+        image = interactions.File(game.get_image_path(isSpy=(game.state in [State.BLUE_WIN, State.RED_WIN])))
+        await ctx.send(f"The word {word_found} was {card_color.display()}\
+                       \n{ColorCard.BLUE.display()} words remaining : `{game.card_grid.remaining_words_count[ColorCard.BLUE]}`\
+                       \n{ColorCard.RED.display()}  words remaining : `{game.card_grid.remaining_words_count[ColorCard.RED]}`\
+                       \n\
+                       \n{state_message(game)}", 
+                       files=image, 
+                       components=state_component(game)
+        )
         if game.state in [State.BLUE_WIN, State.RED_WIN]:
             await GAME_LIST.delete_game(game.channel_id)
+
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except GameNotStarted:
@@ -314,8 +360,9 @@ async def skip(ctx: interactions.CommandContext):
     try:
         game = await GAME_LIST.get_game(ctx.channel_id)
         await game.skip(ctx.user)
-        await ctx.send(f"{ctx.user.username} skipped their turn...")
-        await ctx.send(state_message(game), components=state_component(game))
+        await ctx.send(f"{ctx.user.username} skipped their turn...\
+                       \n\
+                       \n{state_message(game)}", components=state_component(game))
     except GameNotFound:
         await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
     except GameNotStarted:
