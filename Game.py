@@ -119,7 +119,6 @@ class Game(object):
         
         player:Player = self.player_list.pop(user.id)
         self.teams[player.team_color].remove(player)
-        print(self.player_list)
 
 
     def next_state(self):
@@ -269,6 +268,11 @@ class Game(object):
         
         if number <= 0:
             raise WrongHintNumberGiven()
+
+        # setting more than remaining word set number of try to the number of remaining words
+        remaining_words = self.card_grid.remaining_words_count[player.team_color]
+        if number > remaining_words:
+            number = remaining_words
         
         # remove or replace special characters and keep only the first word in the possible sentence
         newWord = unidecode.unidecode(word).upper().split(" ")[0]
