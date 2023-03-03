@@ -71,6 +71,7 @@ class Game(object):
         self.last_number_hint:int = 0
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
+        self.winner:State | None = None
     
     async def join(self, user: di.User, team_color: ColorCard):
         """add a user to the game. 
@@ -134,19 +135,19 @@ class Game(object):
             case State.BLUE_SPY :
                 self.state = State.BLUE_PLAYER
             case State.BLUE_PLAYER :
-                winner = self.who_won() # State.BLUE_WIN | State.RED_WIN | None
-                if winner == None:
+                if self.winner == None:
                     self.state = State.RED_SPY
+                    self.bonus_proposition = True
                 else:
-                    self.state = winner
+                    self.state = self.winner
 
             case State.RED_SPY :
                 self.state = State.RED_PLAYER
 
             case State.RED_PLAYER :
-                winner = self.who_won() # State.BLUE_WIN | State.RED_WIN | None
                 if winner == None:
                     self.state = State.BLUE_SPY
+                    self.bonus_proposition = True
                 else:
                     self.state = winner
 
@@ -349,17 +350,20 @@ class Game(object):
         try:
             newWord = unidecode.unidecode(word).upper().split(" ")[0]
             (color, word_found) = self.card_grid.guess(newWord) # can raise WordNotInGrid
-            # guess a wrong color
-            if color != player.team_color:
+
+            self.winner = self.who_won()
+            # a team win or guess a wrong color
+            if self.winner != None or color != player.team_color:
                 self.next_state()
             # one or more proposition left
             elif self.last_number_hint > 0:
                 self.last_number_hint -= 1
                 self.one_word_found = True
             # no more proposition except the bonus one
-            elif self.bonus_proposition: 
+            elif self.bonus_proposition:
                 self.bonus_proposition = False
                 self.next_state()
+            
             # generate the png grids
             await self.generate_grids()
             return (color, word_found)
