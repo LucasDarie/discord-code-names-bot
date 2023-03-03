@@ -7,6 +7,7 @@ from Language import Language
 from ColorCard import ColorCard
 from CodeGameExceptions import *
 from Game import Game, State
+from ButtonLabel import ButtonLabel
 
 load_dotenv()
 
@@ -35,18 +36,18 @@ def players_turn_message(game:Game) -> str:
         \nHint: `{game.last_word_suggested}`\nNumber of tries remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
         \n`/guess` to guess a word of your team's color"
 
-def get_display_button() -> list[interactions.Button]:
+def get_display_button(language:Language) -> list[interactions.Button]:
     return [interactions.Button(
-            custom_id="display_button_id",
+            custom_id=ButtonLabel.DISPLAY_GRID_BUTTON.value,
             style=interactions.ButtonStyle.SUCCESS,
-            label="DISPLAY GRID",
+            label=ButtonLabel.DISPLAY_GRID_BUTTON.label(language),
         )]
 
-def get_skip_button() -> list[interactions.Button]:
+def get_skip_button(language:Language) -> list[interactions.Button]:
         return [interactions.Button(
-                custom_id="skip_button_id",
+                custom_id=ButtonLabel.SKIP_BUTTON.value,
                 style=interactions.ButtonStyle.SUCCESS,
-                label="SKIP",
+                label=ButtonLabel.SKIP_BUTTON.label(language),
             )]
 
 
@@ -67,13 +68,13 @@ def state_message(game:Game) -> str:
 def state_component(game:Game) -> list[interactions.Button] | None:
     match game.state:
         case State.WAITING:
-            return get_join_buttons()
+            return get_join_buttons(game.language)
         case State.BLUE_SPY | State.RED_SPY:
-            return get_display_button()
+            return get_display_button(game.language)
         case State.BLUE_PLAYER | State.RED_PLAYER:
             # don't display skip button after /suggest message
             if game.one_word_found:
-                return get_skip_button()
+                return get_skip_button(game.language)
         case _:
             return None
 
@@ -85,21 +86,15 @@ async def test(ctx: interactions.CommandContext):
 
 
 @bot.command()
-@bot.component("display_button_id")
+@bot.component("display_grid_button_id")
 async def display(ctx: interactions.CommandContext):
     """Display the grid depending on your role"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         image = interactions.File(game.get_user_image_path(ctx.user))
         await ctx.send(files=image, ephemeral=True)
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except GameNotStarted:
-        await ctx.send("The game did not start")
-    except NotInGame:
-        await ctx.send("You are not in the game")
-    except FileNotFoundError:
-        await ctx.send("Error : Image not found")
+    except (GameNotFound, GameNotStarted, NotInGame, FileNotFoundError) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -111,27 +106,27 @@ def get_create_message(game:Game):
 
 
 
-def get_join_buttons() -> list[interactions.Button]:
+def get_join_buttons(language:Language) -> list[interactions.Button]:
     return [
         interactions.Button(
-            custom_id="blue_join_button_id",
+            custom_id=ButtonLabel.BLUE_JOIN_BUTTON.value,
             style=interactions.ButtonStyle.PRIMARY,
-            label=f"{ColorCard.BLUE.value} TEAM!",
+            label=ButtonLabel.BLUE_JOIN_BUTTON.label(language)
         ),
         interactions.Button(
-            custom_id="red_join_button_id",
+            custom_id=ButtonLabel.RED_JOIN_BUTTON.value,
             style=interactions.ButtonStyle.DANGER,
-            label=f"{ColorCard.RED.value} TEAM!",
+            label=ButtonLabel.RED_JOIN_BUTTON.label(language)
         ),
         interactions.Button(
-            custom_id="leave_button_id",
+            custom_id=ButtonLabel.LEAVE_BUTTON.value,
             style=interactions.ButtonStyle.SECONDARY,
-            label=f"LEAVE GAME",
+            label=ButtonLabel.LEAVE_BUTTON.label(language)
         ),
         interactions.Button(
-            custom_id="start_button_id",
+            custom_id=ButtonLabel.START_BUTTON.value,
             style=interactions.ButtonStyle.SUCCESS,
-            label=f"START GAME",
+            label=ButtonLabel.START_BUTTON.label(language)
         ),
     ]
 
@@ -154,8 +149,8 @@ async def create(ctx: interactions.CommandContext, language:str):
     try:
         game = await GAME_LIST.create_game(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
         await ctx.send(content=get_create_message(game), components=state_component(game))
-    except GameInChannelAlreadyCreated:
-        await ctx.send("A game is already created in this channel", ephemeral=True)
+    except GameInChannelAlreadyCreated as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -163,10 +158,10 @@ async def create(ctx: interactions.CommandContext, language:str):
 async def delete(ctx: interactions.CommandContext):
     """Create a game of Code Names"""
     try:
-        await GAME_LIST.delete_game(channel_id=ctx.channel_id)
+        await GAME_LIST.delete_game(channel_id=ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await ctx.send(f"{ctx.user.username} deleted the game")
-    except GameNotFound:
-        await ctx.send("There is currently no game in this channel", ephemeral=True)
+    except GameNotFound as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 async def join_team(
@@ -175,17 +170,15 @@ async def join_team(
         message:interactions.Message=None):
     color = ColorCard.BLUE if team == ColorCard.BLUE.value else ColorCard.RED
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.join(ctx.user, team_color=color)
         if(message != None):
-            await message.edit(content=get_create_message(game), components=get_join_buttons())
+            await message.edit(content=get_create_message(game), components=state_component(game))
             await ctx.edit(ctx.message.content)
         else:
             await ctx.send(f"{ctx.user.username} join the {color.display()} team !")
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except GameAlreadyStarted:
-        await ctx.send("The game has already started")
+    except (GameNotFound, GameAlreadyStarted) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -223,19 +216,15 @@ async def on_login_blue_click(ctx:interactions.CommandContext):
 async def leave(ctx: interactions.CommandContext):
     """leave a game that did not start"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.leave(ctx.user)
         if(ctx.message != None):
-            await ctx.message.edit(content=get_create_message(game), components=get_join_buttons())
+            await ctx.message.edit(content=get_create_message(game), components=state_component(game))
             await ctx.send(f"You left the game", ephemeral=True)
         else:
             await ctx.send(f"{ctx.user.username} left the game")
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except NotInGame:
-        await ctx.send("You are not in the game", ephemeral=True)
-    except GameAlreadyStarted:
-        await ctx.send("The game has already started")
+    except (GameNotFound, NotInGame, GameAlreadyStarted) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -244,7 +233,7 @@ async def leave(ctx: interactions.CommandContext):
 async def start(ctx: interactions.CommandContext):
     """Start the game of Code Names"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.start(ctx.user.id)
         color = game.starting_team_color
         start_message = "🔲 `STARTS`"
@@ -259,14 +248,8 @@ async def start(ctx: interactions.CommandContext):
                     files=image
         )
         # await ctx.send(state_message(game), components=state_component(game))
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except NotGameCreator:
-        await ctx.send("You are not the game creator, you can not start the game", ephemeral=True)
-    except GameAlreadyStarted:
-        await ctx.send("The game has already started", ephemeral=True)
-    except NotEnoughPlayerInTeam:
-        await ctx.send("Both teams need to have at least 2 players each", ephemeral=True)
+    except (GameNotFound, NotGameCreator, GameAlreadyStarted, NotEnoughPlayerInTeam) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -276,25 +259,13 @@ async def start(ctx: interactions.CommandContext):
 async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int):
     """Suggest a hint to help your team to guess words. Provide also a number of try"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.suggest(ctx.user, hint, number_of_try)
 
         await ctx.send(state_message(game), components=state_component(game))
 
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except GameNotStarted:
-        await ctx.send("The game did not start", ephemeral=True)
-    except NotInGame:
-        await ctx.send("You are not in the game", ephemeral=True)
-    except NotYourRole:
-        await ctx.send("You are not a spy you can not use this command !", ephemeral=True)
-    except NotYourTurn as e:
-        await ctx.send(f"{e}", ephemeral=True)
-    except WrongHintNumberGiven:
-        await ctx.send("the `number of try` given is smaller than 0, it must be `> 0`", ephemeral=True)
-    except WordInGrid:
-        await ctx.send("The `hint` provided is present in the grid. `/rules` for more info", ephemeral=True)
+    except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, WrongHintNumberGiven, WordInGrid) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
@@ -319,7 +290,7 @@ async def card_id(ctx: interactions.CommandContext, card_id: int):
 
 async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id:int=None):
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         if word == None and card_id != None:
             (card_color, word_found) = await game.guess_by_card_id(ctx.user, card_id)
         elif word != None and card_id == None:
@@ -338,43 +309,23 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
                        components=state_component(game)
         )
         if game.state in [State.BLUE_WIN, State.RED_WIN]:
-            await GAME_LIST.delete_game(game.channel_id)
+            await GAME_LIST.delete_game(game.channel_id, language=Language.get_discord_equivalent(ctx.locale))
 
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except GameNotStarted:
-        await ctx.send("The game did not start", ephemeral=True)
-    except NotInGame:
-        await ctx.send("You are not in the game", ephemeral=True)
-    except NotYourRole:
-         await ctx.send("You are a spy you can not use this command !", ephemeral=True)
-    except NotYourTurn as e:
-        await ctx.send(f"{e}", ephemeral=True)
-    except WordNotInGrid:
-        await ctx.send("The the provided is not in the grid", ephemeral=True)
+    except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, WordNotInGrid, WrongCardIdNumberGiven) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 @bot.command()
 @bot.component("skip_button_id")
 async def skip(ctx: interactions.CommandContext):
     """End the player turn if at least one word is proposed"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id)
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.skip(ctx.user)
         await ctx.send(f"{ctx.user.username} skipped their turn...\
                        \n\
                        \n{state_message(game)}", components=state_component(game))
-    except GameNotFound:
-        await ctx.send("No game created. Use `/create` to create a game !", ephemeral=True)
-    except GameNotStarted:
-        await ctx.send("The game did not start", ephemeral=True)
-    except NotInGame:
-        await ctx.send("You are not in the game", ephemeral=True)
-    except NotYourRole:
-         await ctx.send("You are a spy you can not use this command !", ephemeral=True)
-    except NotYourTurn as e:
-        await ctx.send(f"{e}", ephemeral=True)
-    except NoWordFound:
-        await ctx.send("You must guess at least one word in the grid", ephemeral=True)
+    except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, NoWordGuessed) as e:
+        await ctx.send(e.message, ephemeral=True)
     
 
 
