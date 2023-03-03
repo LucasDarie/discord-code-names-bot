@@ -125,7 +125,7 @@ class CardGrid(object):
             str: the corresponding word
         """
         if(card_id < 1 or card_id > 25):
-            raise WrongCardIdNumberGiven()
+            raise WrongCardIdNumberGiven(self.language, GRID_SIZE)
         
         i = (card_id-1)//GRID_SIZE
         j = (card_id-1)%GRID_SIZE
