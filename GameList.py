@@ -24,12 +24,12 @@ class GameList(object):
             Game: the game created
         """
         if channel_id in self.game_list:
-            raise GameInChannelAlreadyCreated()
+            raise GameInChannelAlreadyCreated(language)
         newGame = Game(language, creator_id, channel_id, guild_id)
         self.game_list[channel_id] = newGame
         return newGame
 
-    async def delete_game(self, channel_id):
+    async def delete_game(self, channel_id, language:Language):
         """delete the game of a channel
 
         Args:
@@ -39,12 +39,12 @@ class GameList(object):
             GameNotFound: if there is no game created in this channel
         """
         if channel_id not in self.game_list:
-            raise GameNotFound()
+            raise GameNotFound(language)
         # remove files
         [os.remove(os.path.join('render/', filename)) for filename in os.listdir('render/') if filename.startswith(f'{channel_id}') and filename.endswith('.png')]
         self.game_list.pop(channel_id)
     
-    async def get_game(self, channel_id:str) -> Game:
+    async def get_game(self, channel_id:str, language:Language) -> Game:
         """return the game of the channel
 
         Args:
@@ -57,6 +57,6 @@ class GameList(object):
             Game: the game of the channel
         """
         if channel_id not in self.game_list:
-            raise GameNotFound()
+            raise GameNotFound(language)
         return self.game_list.get(channel_id)
         
