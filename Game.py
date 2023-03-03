@@ -85,7 +85,7 @@ class Game(object):
             GameAlreadyStarted: when the game is already started
         """
         if self.state != State.WAITING:
-            raise GameAlreadyStarted()
+            raise GameAlreadyStarted(self.language)
         
         # already in Game : change team color
         if user.id in self.player_list:
@@ -113,10 +113,10 @@ class Game(object):
             NotInGame: when the user is not in the game
         """
         if self.state != State.WAITING:
-            raise GameAlreadyStarted()
+            raise GameAlreadyStarted(self.language)
         
         if user.id not in self.player_list:
-            raise NotInGame()
+            raise NotInGame(self.language)
         
         player:Player = self.player_list.pop(user.id)
         self.teams[player.team_color].remove(player)
@@ -145,11 +145,11 @@ class Game(object):
                 self.state = State.RED_PLAYER
 
             case State.RED_PLAYER :
-                if winner == None:
+                if self.winner == None:
                     self.state = State.BLUE_SPY
                     self.bonus_proposition = True
                 else:
-                    self.state = winner
+                    self.state = self.winner
 
             case State.RED_WIN | State.BLUE_WIN:
                 pass
@@ -213,16 +213,13 @@ class Game(object):
             NotEnoughPlayerInTeam: if the number of player in a team is smaller than 2
         """
         if self.creator_id != creator_id:
-            raise NotGameCreator()
+            raise NotGameCreator(self.language)
         
         if self.state != State.WAITING:
-            raise GameAlreadyStarted()
+            raise GameAlreadyStarted(self.language)
         
-        if self.nb_player_in_team(ColorCard.RED) < 2:
-            raise NotEnoughPlayerInTeam(f"{ColorCard.RED.value}")
-        
-        if self.nb_player_in_team(ColorCard.BLUE) < 2:
-            raise NotEnoughPlayerInTeam(f"{ColorCard.BLUE.value}")
+        if self.nb_player_in_team(ColorCard.RED) < 2 or self.nb_player_in_team(ColorCard.BLUE) < 2:
+            raise NotEnoughPlayerInTeam(self.language)
         
         self.chose_spies()
 
@@ -251,24 +248,24 @@ class Game(object):
             tuple[str, int]: the word and the number stored
         """
         if user.id not in self.player_list:
-            raise NotInGame()
+            raise NotInGame(self.language)
         
         if self.state == State.WAITING:
-            raise GameNotStarted()
+            raise GameNotStarted(self.language)
 
         player:Player = self.player_list[user.id]
 
         if not player.isSpy:
-            raise NotYourRole()
+            raise NotYourRole(self.language)
         
         if self.state not in [State.BLUE_SPY, State.RED_SPY]:
-            raise NotYourTurn("it's up to the players to play") # TODO message
+            raise NotYourTurn(self.language)
         
         if self.state.color() != player.team_color:
-            raise NotYourTurn("it's not your team's turn")
+            raise NotYourTurn(self.language)
         
         if number <= 0:
-            raise WrongHintNumberGiven()
+            raise WrongHintNumberGiven(self.language)
 
         # setting more than remaining word set number of try to the number of remaining words
         remaining_words = self.card_grid.remaining_words_count[player.team_color]
@@ -278,7 +275,7 @@ class Game(object):
         # remove or replace special characters and keep only the first word in the possible sentence
         newWord = unidecode.unidecode(word).upper().split(" ")[0]
         if self.card_grid.is_in_grid(newWord):
-            raise WordInGrid()
+            raise WordInGrid(self.language)
         
         self.last_number_hint = number
         self.last_word_suggested = newWord
@@ -331,21 +328,21 @@ class Game(object):
             tuple[ColorCard, str]: the color of the guessed card and the word
         """
         if user.id not in self.player_list:
-            raise NotInGame()
+            raise NotInGame(self.language)
         
         if self.state == State.WAITING:
-            raise GameNotStarted()
+            raise GameNotStarted(self.language)
         
         player:Player = self.player_list[user.id]
 
         if player.isSpy:
-            raise NotYourRole()
+            raise NotYourRole(self.language)
         
         if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
-            raise NotYourTurn("it's up to the spies to play") # TODO message
+            raise NotYourTurn(self.language)
         
         if self.state.color() != player.team_color:
-            raise NotYourTurn("it's not your team's turn")
+            raise NotYourTurn(self.language)
 
         try:
             newWord = unidecode.unidecode(word).upper().split(" ")[0]
@@ -367,8 +364,8 @@ class Game(object):
             # generate the png grids
             await self.generate_grids()
             return (color, word_found)
-        except WordNotInGrid as word_in_grid:
-            raise word_in_grid
+        except WordNotInGrid:
+            raise
 
     async def skip(self, user:di.User):
         """skip the turn of a player
@@ -382,27 +379,27 @@ class Game(object):
             NotYourRole: if the Player is a spy
             NotYourTurn: if it's not a Player turn
             NotYourTurn: if it's not the team of the user that play
-            NoWordFound: if the player didn't found any word
+            NoWordGuessed: if the player didn't found any word
         """
         if user.id not in self.player_list:
-            raise NotInGame()
+            raise NotInGame(self.language)
         
         if self.state == State.WAITING:
-            raise GameNotStarted()
+            raise GameNotStarted(self.language)
         
         player:Player = self.player_list[user.id]
 
         if player.isSpy:
-            raise NotYourRole()
+            raise NotYourRole(self.language)
         
         if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
-            raise NotYourTurn("it's up to the spies to play") # TODO message
+            raise NotYourTurn(self.language)
         
         if self.state.color() != player.team_color:
-            raise NotYourTurn("it's not your team's turn")
+            raise NotYourTurn(self.language)
 
         if not self.one_word_found:
-            raise NoWordFound()
+            raise NoWordGuessed(self.language)
 
         self.next_state()
 
@@ -437,13 +434,13 @@ class Game(object):
             str: the path of the image
         """        
         if self.state == State.WAITING:
-            raise GameNotStarted()
+            raise GameNotStarted(self.language)
         path = f"render/{self.channel_id}{'_SPY' if isSpy else '_PLAYER'}.png"
         try:
             Image.open(path)
             return path
-        except FileNotFoundError as e:
-            raise e
+        except FileNotFoundError:
+            raise
         
     def get_user_image_path(self,  user: di.User) -> str:
         """return the image path for the player
@@ -460,7 +457,7 @@ class Game(object):
             str: the path of the image
         """
         if user.id not in self.player_list:
-            raise NotInGame()
+            raise NotInGame(self.language)
         player:Player = self.player_list[user.id]
         return self.get_image_path(player.isSpy) # can raise GameNotStarted
 
