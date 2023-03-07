@@ -131,4 +131,5 @@ dmypy.json
 # rendered images
 /render
 
-platypus_list.txt
+# server's word list
+words/servers
