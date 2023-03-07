@@ -52,9 +52,9 @@ class NotEnoughPlayerInTeam(CodeNamesException):
     def __init__(self, language:Language):
         match language:
             case Language.FR:
-                message = "Les deux équipes doivent avoir au moins 2 joueurs chacune"
+                message = "Toutes les équipes doivent avoir au moins 2 joueurs"
             case _:
-                message = "Both teams need to have at least 2 players each"
+                message = "All teams need to have at least 2 players each"
         super().__init__(language, message)
 
 class NotYourTurn(CodeNamesException):
