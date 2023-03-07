@@ -12,26 +12,9 @@ from PIL import Image
 
 class State(enum.Enum):
     WAITING = 0
-    BLUE_SPY = 1
-    BLUE_PLAYER = 2
-    BLUE_WIN = 3
-    RED_SPY = 4
-    RED_PLAYER = 5
-    RED_WIN = 6
-
-    def color(self) -> ColorCard | None:
-        """return the color of the team associate to each state, if no color is associate return None
-
-        Returns:
-            ColorCard | None : the color of the team associate to each state, None if no color is associate
-        """
-        match self:
-            case State.BLUE_SPY | State.BLUE_PLAYER | State.BLUE_WIN:
-                return ColorCard.BLUE
-            case State.RED_SPY | State.RED_PLAYER | State.RED_WIN:
-                return ColorCard.RED
-            case _:
-                return None
+    SPY = 1
+    PLAYER = 2
+    WIN = 3
 
 class Player(object):
     def __init__(self, user: di.User, team_color: ColorCard) -> None:
@@ -43,7 +26,7 @@ class Player(object):
 class Game(object):
     
 
-    def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str) -> None:
+    def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str, nb_teams:int) -> None:
         """constructeur of a Game object
 
         Args:
@@ -54,24 +37,28 @@ class Game(object):
         """
         super(Game, self).__init__()
 
-        nb_random = random.randint(0, 1)
-        team_colors = [ColorCard.BLUE, ColorCard.RED]
+        self.team_colors: list[ColorCard] = [ColorCard.BLUE, ColorCard.RED, ColorCard.GREEN, ColorCard.YELLOW][:nb_teams]
         
+        self.state : State = State.WAITING
+        self.color_state : ColorCard = random.choice(self.team_colors)
+        self.winner:ColorCard | None = None
+
         self.language: Language = language
-        self.starting_team_color:ColorCard = team_colors[nb_random]
+        
         self.creator_id :str = creator_id
         self.channel_id:str = channel_id
         self.guild_id:str = guild_id
-        self.card_grid = CardGrid(language=language, starting_team_color=self.starting_team_color)
-        self.state : State = State.WAITING
+
+        self.card_grid = CardGrid(language=language, starting_team_color=self.color_state)
+
         self.player_list: dict[str, Player] = {}
         self.spies: dict[ColorCard, Player] = {}
         self.teams:dict[ColorCard, list[Player]] = {ColorCard.BLUE:[], ColorCard.RED:[]}
+
         self.last_word_suggested:str = ""
         self.last_number_hint:int = 0
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
-        self.winner:State | None = None
     
     async def join(self, user: di.User, team_color: ColorCard):
         """add a user to the game. 
@@ -127,31 +114,22 @@ class Game(object):
         """
         match self.state:
             case State.WAITING :
-                if self.starting_team_color == ColorCard.BLUE:
-                    self.state = State.BLUE_SPY
-                else: 
-                    self.state = State.RED_SPY
+                self.state = State.SPY
 
-            case State.BLUE_SPY :
-                self.state = State.BLUE_PLAYER
-            case State.BLUE_PLAYER :
-                if self.winner == None:
-                    self.state = State.RED_SPY
-                    self.bonus_proposition = True
-                else:
-                    self.state = self.winner
+            case State.SPY :
+                self.state = State.PLAYER
 
-            case State.RED_SPY :
-                self.state = State.RED_PLAYER
+            case State.PLAYER :
+                if self.winner:
+                    self.state = State.WIN
+                    return
+                
+                self.state = State.SPY
+                self.bonus_proposition = True
+                index = self.team_colors.index(self.color_state)
+                self.color_state = self.team_colors[(index+1)%len(self.team_colors)]
 
-            case State.RED_PLAYER :
-                if self.winner == None:
-                    self.state = State.BLUE_SPY
-                    self.bonus_proposition = True
-                else:
-                    self.state = self.winner
-
-            case State.RED_WIN | State.BLUE_WIN:
+            case State.WIN:
                 pass
 
     def who_won(self) -> State | None:
