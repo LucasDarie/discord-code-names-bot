@@ -5,14 +5,20 @@ class ColorCard(enum.Enum):
    WHITE = "WHITE"
    RED = "RED"
    BLUE = "BLUE"
+   GREEN = "GREEN"
+   YELLOW = "YELLOW"
    BLACK = "BLACK"
 
    def display(self, language:Language=Language.EN, female=False) -> str:
       match self:
          case ColorCard.RED:
-            return "🟥 " + self.translate(language, female)
+            return "<:red_diamond:1082757439830634547> " + self.translate(language, female)
          case ColorCard.BLUE:
             return "🔵 " + self.translate(language, female)
+         case ColorCard.GREEN:
+            return "<:green_triangle:1082752939619274812> " + self.translate(language, female)
+         case ColorCard.YELLOW:
+            return "<:yellow_star:1082752942785953852> " + self.translate(language, female)
          case ColorCard.BLACK:
             return "🔳 " + self.translate(language, female)
          case _:
@@ -35,6 +41,10 @@ class ColorCard(enum.Enum):
                   return "ROUGE"
                case ColorCard.BLUE:
                   return "BLEUE" if female else "BLEU"
+               case ColorCard.GREEN:
+                  return "VERTE" if female else "VERT"
+               case ColorCard.YELLOW:
+                  return "JAUNE"
                case ColorCard.BLACK:
                   return "NOIRE" if female else "NOIRE"
                case ColorCard.WHITE:
