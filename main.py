@@ -32,7 +32,7 @@ def get_team_message(game:Game, color:ColorCard, withSpy:bool=True) -> str:
     return str([f"<@{p.user.id}>" for p in game.teams[color] if withSpy or not p.isSpy]).translate({ord('['):None, ord('\''):None, ord(']'):None})
 
 def players_turn_message(game:Game) -> str:
-    return f"{game.state.color().display()} PLAYERS' turn: {get_team_message(game, game.state.color(), withSpy=False)}\
+    return f"{game.color_state.display()} PLAYERS' turn: {get_team_message(game, game.color_state, withSpy=False)}\
         \nHint: `{game.last_word_suggested}`\nNumber of tries remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
         \n`/guess` to guess a word of your team's color"
 
@@ -56,12 +56,12 @@ def state_message(game:Game) -> str:
     match game.state:
         case State.WAITING:
             return "Waiting for game creator to start the game"
-        case State.BLUE_SPY | State.RED_SPY:
-            return f"{game.state.color().display()} SPY's turn : <@{game.spies[game.state.color()].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
-        case State.BLUE_PLAYER | State.RED_PLAYER:
+        case State.SPY:
+            return f"{game.color_state.display()} SPY's turn : <@{game.spies[game.color_state].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
+        case State.PLAYER:
             return players_turn_message(game)
-        case State.BLUE_WIN | State.RED_WIN:
-            return f"{game.state.color().display()} TEAM WIN! GG {get_team_message(game, color=game.state.color())}"
+        case State.WIN:
+            return f"{game.color_state.display()} TEAM WIN! GG {get_team_message(game, color=game.color_state)}"
 
 
 
@@ -69,9 +69,9 @@ def state_component(game:Game) -> list[interactions.Button] | None:
     match game.state:
         case State.WAITING:
             return get_join_buttons(game.language)
-        case State.BLUE_SPY | State.RED_SPY:
+        case State.SPY:
             return get_display_button(game.language)
-        case State.BLUE_PLAYER | State.RED_PLAYER:
+        case State.PLAYER:
             # don't display skip button after /suggest message
             if game.one_word_found:
                 return get_skip_button(game.language)
@@ -106,21 +106,19 @@ def get_create_message(game:Game):
 
 
 
-def get_join_buttons(language:Language) -> list[interactions.Button]:
-    return [
+def get_join_buttons(language:Language, game:Game) -> list[interactions.Button]:
+    buttons = [
         interactions.Button(
-            custom_id=ButtonLabel.BLUE_JOIN_BUTTON.value,
+            custom_id=ButtonLabel.get_by_color(team_color).value,
             style=interactions.ButtonStyle.PRIMARY,
-            label=ButtonLabel.BLUE_JOIN_BUTTON.label(language)
-        ),
-        interactions.Button(
-            custom_id=ButtonLabel.RED_JOIN_BUTTON.value,
-            style=interactions.ButtonStyle.DANGER,
-            label=ButtonLabel.RED_JOIN_BUTTON.label(language)
-        ),
+            label=ButtonLabel.get_by_color(team_color).label(language)
+        )
+        for team_color in game.team_colors
+    ]
+    buttons.extend([
         interactions.Button(
             custom_id=ButtonLabel.LEAVE_BUTTON.value,
-            style=interactions.ButtonStyle.SECONDARY,
+            style=interactions.ButtonStyle.DANGER,
             label=ButtonLabel.LEAVE_BUTTON.label(language)
         ),
         interactions.Button(
@@ -128,7 +126,8 @@ def get_join_buttons(language:Language) -> list[interactions.Button]:
             style=interactions.ButtonStyle.SUCCESS,
             label=ButtonLabel.START_BUTTON.label(language)
         ),
-    ]
+    ])
+    return buttons
 
 
 
