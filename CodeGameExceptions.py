@@ -145,3 +145,13 @@ class GameNotStarted(CodeNamesException):
             case _:
                 message = "The game did not start"
         super().__init__(language, message)
+
+class TeamNotAvailable(CodeNamesException):
+    "Raised when a command is used but the game is not yet started"
+    def __init__(self, language:Language):
+        match language:
+            case Language.FR:
+                message = "Cette équipe n'est pas disponible pour cette partie"
+            case _:
+                message = "Team not available for this game"
+        super().__init__(language, message)
