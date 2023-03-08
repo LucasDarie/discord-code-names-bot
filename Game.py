@@ -17,10 +17,11 @@ class State(enum.Enum):
     WIN = 3
 
 class Player(object):
-    def __init__(self, user: di.User, team_color: ColorCard) -> None:
+    def __init__(self, user: di.User, team_color: ColorCard, can_be_spy:bool) -> None:
         self.user: di.User = user
         self.team_color: ColorCard = team_color
         self.isSpy: bool = False
+        self.can_be_spy: bool = can_be_spy
 
 
 class Game(object):
@@ -36,12 +37,12 @@ class Game(object):
             guild_id (str) : the guild id where the game has been created
         """
         super(Game, self).__init__()
-
         self.team_colors: list[ColorCard] = [ColorCard.BLUE, ColorCard.RED, ColorCard.GREEN, ColorCard.YELLOW][:nb_teams]
+        self.nb_minimum_player: int = 2 # TODO : solo mode
         
         self.state : State = State.WAITING
         self.color_state : ColorCard = random.choice(self.team_colors)
-        self.winner:ColorCard | None = None
+        self.winners:list[ColorCard] = []
 
         self.language: Language = language
         
@@ -60,31 +61,38 @@ class Game(object):
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
     
-    async def join(self, user: di.User, team_color: ColorCard):
+    async def join(self, user: di.User, team_color: ColorCard, can_be_spy:bool=False):
         """add a user to the game. 
             If the Player is already in the game, switch there team color.
 
         Args:
             user (di.User): the discord user that write the command
             team_color (ColorCard): the color of the desired team
+            can_be_spy (str): indicate if the player want to be a spy for the game
 
         Raises:
             GameAlreadyStarted: when the game is already started
         """
         if self.state != State.WAITING:
             raise GameAlreadyStarted(self.language)
+
+        if team_color not in self.team_colors:
+            raise TeamNotAvailable(self.language)
         
         # already in Game : change team color
         if user.id in self.player_list:
             player:Player = self.player_list[user.id]
             # pop the player from there team
             self.teams[player.team_color].remove(player)
-            # change team colo
+            # change team color
             player.team_color = team_color
+            # change can_be_spy state
+            player.can_be_spy = can_be_spy
+
             self.teams[team_color].append(player)
             return
         # else
-        p = Player(user=user, team_color=team_color)
+        p = Player(user=user, team_color=team_color, can_be_spy=can_be_spy)
         self.player_list[user.id] = p
         self.teams[team_color].append(p)
 
@@ -120,38 +128,39 @@ class Game(object):
                 self.state = State.PLAYER
 
             case State.PLAYER :
-                if self.winner:
+                if len(self.winners) > 0:
                     self.state = State.WIN
                     return
-                
+                # else
                 self.state = State.SPY
                 self.bonus_proposition = True
                 index = self.team_colors.index(self.color_state)
+                # change the color of the team for the next team to play
                 self.color_state = self.team_colors[(index+1)%len(self.team_colors)]
 
             case State.WIN:
                 pass
 
-    def who_won(self) -> State | None:
-        """return the State of the team that win if it the case, else return None
+    def who_won(self) -> ColorCard | None:
+        """return the ColorCard of the team that win if it the case, else return None
 
         Returns:
-            State | None: the State of the team that win if it the case, else return None
+            ColorCard | None: the State of the team that win if it the case, else return None
         """
-        # Blue team found all cards
-        if self.card_grid.remaining_words_count[ColorCard.BLUE] <= 0:
-            return State.BLUE_WIN
-        # Red team found all cards
-        elif self.card_grid.remaining_words_count[ColorCard.RED] <= 0:
-            return State.RED_WIN
+        i = 0
+        while i < len(self.team_colors):
+            color_team = self.team_colors[i]
+            i += 1
+            if self.card_grid.remaining_words_count[color_team] <= 0:
+                return color_team
+        # exit condition : i >= len(self.team_colors) : no winner
+
         # Black card found
-        elif self.card_grid.remaining_words_count[ColorCard.BLACK] <= 0:
-            # by blue team
-            if self.state == State.BLUE_PLAYER:
-                return State.RED_WIN
-            # by red team
-            elif self.state == State.RED_PLAYER:
-                return State.BLUE_WIN
+        if self.card_grid.remaining_words_count[ColorCard.BLACK] <= 0:
+            # return all teams except the team that found black card
+            temp_team_colors = self.team_colors.copy()
+            temp_team_colors.remove(self.color_state)
+            return temp_team_colors
         return None
 
     def nb_player_in_team(self, team_color:ColorCard) -> int:
@@ -161,23 +170,27 @@ class Game(object):
             team_color (ColorCard): the color of the team
 
         Returns:
-            int: the number of player in the team, 0 if the color is not RED or BLUE
+            int: the number of player in the team, 0 if the color is not in team_colors
         """
-        if team_color not in [ColorCard.RED, ColorCard.BLUE]:
+        if team_color not in self.team_colors:
             return 0
         # return the number of player in the specified team
         return len(self.teams[team_color])
-        # OLD : return sum(player.team_color == team_color for player in self.player_list.values())
 
     def chose_spies(self):
         """Define 1 spy in each team randomly
         """
-        blue_spy:Player = random.choice(self.teams[ColorCard.BLUE])
-        red_spy:Player = random.choice(self.teams[ColorCard.RED])
-        blue_spy.isSpy = True
-        red_spy.isSpy = True
-        self.spies[ColorCard.BLUE] = blue_spy
-        self.spies[ColorCard.RED] = red_spy
+        for team_color in self.team_colors:
+            # get the list of pretenders in the team
+            spy_pretenders = [player for player in self.teams[team_color] if player.can_be_spy]
+
+            # if no spy pretender : chose a spy in the whole team
+            if len(spy_pretenders) == 0:
+                spy_pretenders = self.teams[team_color]
+
+            spy: Player = random.choice(spy_pretenders)
+            spy.isSpy = True
+            self.spies[team_color] = spy
 
     async def start(self, creator_id:str):
         """Starts a new game if the creator_id is the same as the User that create the game
@@ -196,8 +209,10 @@ class Game(object):
         if self.state != State.WAITING:
             raise GameAlreadyStarted(self.language)
         
-        if self.nb_player_in_team(ColorCard.RED) < 2 or self.nb_player_in_team(ColorCard.BLUE) < 2:
-            raise NotEnoughPlayerInTeam(self.language)
+        i = 0
+        while i < len(self.team_colors):
+            if self.nb_player_in_team(self.team_colors[i]) < self.nb_minimum_player:
+                raise NotEnoughPlayerInTeam(self.language)
         
         self.chose_spies()
 
@@ -236,10 +251,10 @@ class Game(object):
         if not player.isSpy:
             raise NotYourRole(self.language)
         
-        if self.state not in [State.BLUE_SPY, State.RED_SPY]:
+        if self.state != State.SPY:
             raise NotYourTurn(self.language)
         
-        if self.state.color() != player.team_color:
+        if self.color_state != player.team_color:
             raise NotYourTurn(self.language)
         
         if number <= 0:
@@ -316,10 +331,10 @@ class Game(object):
         if player.isSpy:
             raise NotYourRole(self.language)
         
-        if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
+        if self.state != State.PLAYER:
             raise NotYourTurn(self.language)
         
-        if self.state.color() != player.team_color:
+        if self.color_state != player.team_color:
             raise NotYourTurn(self.language)
 
         try:
@@ -370,10 +385,10 @@ class Game(object):
         if player.isSpy:
             raise NotYourRole(self.language)
         
-        if self.state not in [State.BLUE_PLAYER, State.RED_PLAYER]:
+        if self.state != State.PLAYER:
             raise NotYourTurn(self.language)
         
-        if self.state.color() != player.team_color:
+        if self.color_state != player.team_color:
             raise NotYourTurn(self.language)
 
         if not self.one_word_found:
