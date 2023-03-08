@@ -52,7 +52,7 @@ class ButtonLabel(enum.Enum):
                   return "DISPLAY GRID"
                
    @classmethod
-   def get_join_button_by_color(cls, color:ColorCard) -> ButtonLabel:
+   def get_by_color(cls, color:ColorCard) -> ButtonLabel:
       match color:
          case ColorCard.BLUE:
             return ButtonLabel.BLUE_JOIN_BUTTON
