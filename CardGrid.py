@@ -8,34 +8,53 @@ from CodeGameExceptions import WrongCardIdNumberGiven, WordNotInGrid
 GRID_SIZE = 5
 
 class CardGrid(object):
-    def __init__(self, language:Language, starting_team_color:ColorCard) -> None:
+    
+    def __init__(self, language:Language, starting_team_color:ColorCard, team_list:list[ColorCard]) -> None:
         """constructor of the CardGrid object
 
         Args:
             language (Language): the langage of the grid
             starting_team_color (ColorCard): the color of the team that starts
+            team_list (list[ColorCard]): the list of color team present in the grid
         """
         super(CardGrid, self).__init__()
         
+        self.grid_size = 3 + len(team_list)
+
         word_list:list[str]
 
         with open(f"words/{language.value}_word_list.txt", "r") as f:
             words = [unidecode.unidecode(word.strip()).upper() for word in f.readlines()]
-            word_list = random.sample(words, 25)
+            word_list = random.sample(words, self.grid_size**2)
+        
 
-        self.card_list:list[list[Card]] = [[Card(word_list[i*GRID_SIZE+j], ColorCard.WHITE) for j in range(GRID_SIZE)] for i in range(GRID_SIZE)]
+        self.card_list:list[list[Card]] = [[Card(word_list[i*self.grid_size+j], ColorCard.WHITE) for j in range(self.grid_size)] for i in range(self.grid_size)]
         self.language: Language = language
         self.starting_team_color:ColorCard = starting_team_color
-        self.remaining_words_count:dict[ColorCard,int] = {ColorCard.BLUE:0, ColorCard.RED:0, ColorCard.BLACK:0, ColorCard.WHITE:(GRID_SIZE**2)-9-8-1}
-        
-        opponent_team = ColorCard.BLUE if starting_team_color == ColorCard.RED else ColorCard.RED
 
-        # color randomly the grid with 9 and 8 BLUE or RED card, and 1 BLACK
-        self.color_grid(self.card_list, self.starting_team_color, 9)
-        self.color_grid(self.card_list, opponent_team, 8)
-        self.color_grid(self.card_list, ColorCard.BLACK, 1)
+
+        self.remaining_words_count:dict[ColorCard,int] = {}
+        # color randomly the grid
+        self.color_all_grid(team_list=team_list)
+        
     
-    def color_grid(self, grid:list[list[Card]], color:ColorCard, number:int):
+    def color_all_grid(self, team_list:list[ColorCard]):
+        """color all the grid depending on the teams given in parameters
+
+        Args:
+            team_list (list[ColorCard]): the list of teams color
+        """
+        nb_teams = len(team_list)
+        nb_words = 6 + nb_teams
+        for color_team in team_list:
+            self.color_grid(color=color_team, number=nb_words if color_team != self.starting_team_color else nb_words+1)
+            
+        self.color_grid(color=ColorCard.BLACK, number=1)
+        
+        # grid_size**2 = number total of card, nb_words*nb_teams = nb colored card in the grid (+1 for starting team, +1 for black card)
+        self.remaining_words_count[ColorCard.WHITE] = self.grid_size**2 - ((nb_words*nb_teams)+2)
+
+    def color_grid(self, color:ColorCard, number:int):
         """Color a number of cards of the grid with the same color. 
 
         The number and the color are passed in parameter
@@ -48,14 +67,14 @@ class CardGrid(object):
         # set number of word remaining for each card color
         self.remaining_words_count[color] = number
         for _ in range(number):
-            x = random.randint(0, 4)
-            y = random.randint(0, 4)
+            x = random.randint(0, self.grid_size-1)
+            y = random.randint(0, self.grid_size-1)
 
-            while grid[x][y].color != ColorCard.WHITE:
-                x = random.randint(0, 4)
-                y = random.randint(0, 4)
+            while self.card_list[x][y].color != ColorCard.WHITE:
+                x = random.randint(0, self.grid_size-1)
+                y = random.randint(0, self.grid_size-1)
             # exit : grid[x][y].color == ColorCard.WHITE
-            grid[x][y].color = color
+            self.card_list[x][y].color = color
 
     def get_card_by_word(self, word:str) -> Card | None:
         """return the card associate with the word
@@ -69,13 +88,13 @@ class CardGrid(object):
         i = 0
         j = 0
         k = 0
-        while(k < GRID_SIZE**2 and (self.card_list[i][j].guessed or self.card_list[i][j].word != word)):
+        while(k < self.grid_size**2 and (self.card_list[i][j].guessed or self.card_list[i][j].word != word)):
             k += 1
-            j = k%GRID_SIZE
-            i = k//GRID_SIZE
+            j = k%self.grid_size
+            i = k//self.grid_size
         # exit : k >= GRID_SIZE**2 or (not self.card_list[i][j].guessed and self.card_list[i][j].word == word)
 
-        if k < GRID_SIZE**2:
+        if k < self.grid_size**2:
             return self.card_list[i][j]
         return None
     
@@ -125,9 +144,9 @@ class CardGrid(object):
             str: the corresponding word
         """
         if(card_id < 1 or card_id > 25):
-            raise WrongCardIdNumberGiven(self.language, GRID_SIZE)
+            raise WrongCardIdNumberGiven(self.language, self.grid_size)
         
-        i = (card_id-1)//GRID_SIZE
-        j = (card_id-1)%GRID_SIZE
+        i = (card_id-1)//self.grid_size
+        j = (card_id-1)%self.grid_size
 
         return self.card_list[i][j].word
