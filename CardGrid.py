@@ -104,7 +104,7 @@ class CardGrid(object):
         """
         card = self.get_card_by_word(word)
         if card == None :
-            raise WordNotInGrid()
+            raise WordNotInGrid(self.language)
         
         card.guessed = True
         self.remaining_words_count[card.color] -= 1
