@@ -3,30 +3,32 @@ from Game import Game
 from Language import Language
 from CodeGameExceptions import GameInChannelAlreadyCreated, GameNotFound
 import os
+from Creator import Creator
 
 class GameList(object):
     def __init__(self) -> None:
         self.game_list :dict[str:Game]= {}
 
-    async def create_game(self, language:Language, channel_id:str, creator_id:str, guild_id:str) -> Game:
+    async def create_game(self, creator:Creator, nb_teams) -> Game:
         """create a game in the channel
 
         Args:
-            language (Language): the language of the game
-            channel_id (str): the discord channel id where the command was run
-            creator_id (str): the discord user id of the user that run the command
-            guild_id (str): the discord guild id where the command was run
-
+            creator (Creator): an object that encapsulate {
+                language (Language): the language of the game
+                channel_id (str): the discord channel id where the command was run
+                creator_id (str): the discord user id of the user that run the command
+                guild_id (str): the discord guild id where the command was run
+            }
         Raises:
             GameInChannelAlreadyCreated: if a game is already created in the same channel
 
         Returns:
             Game: the game created
         """
-        if channel_id in self.game_list:
-            raise GameInChannelAlreadyCreated(language)
-        newGame = Game(language, creator_id, channel_id, guild_id)
-        self.game_list[channel_id] = newGame
+        if creator.channel_id in self.game_list:
+            raise GameInChannelAlreadyCreated(creator.language)
+        newGame = Game(creator, nb_teams)
+        self.game_list[creator.channel_id] = newGame
         return newGame
 
     async def delete_game(self, channel_id, language:Language):
