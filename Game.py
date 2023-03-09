@@ -9,6 +9,7 @@ import unidecode
 import grid_generator
 import asyncio
 from PIL import Image
+from Creator import Creator
 
 class State(enum.Enum):
     WAITING = 0
@@ -17,7 +18,7 @@ class State(enum.Enum):
     WIN = 3
 
 class Player(object):
-    def __init__(self, user: di.User, team_color: ColorCard, can_be_spy:bool) -> None:
+    def __init__(self, user: di.User, team_color: ColorCard, can_be_spy:bool=False) -> None:
         self.user: di.User = user
         self.team_color: ColorCard = team_color
         self.isSpy: bool = False
@@ -27,7 +28,7 @@ class Player(object):
 class Game(object):
     
 
-    def __init__(self, language:Language, creator_id : str, channel_id:str, guild_id:str, nb_teams:int) -> None:
+    def __init__(self, creator:Creator, nb_teams:int) -> None:
         """constructeur of a Game object
 
         Args:
@@ -44,34 +45,35 @@ class Game(object):
         self.color_state : ColorCard = random.choice(self.team_colors)
         self.winners:list[ColorCard] = []
 
-        self.language: Language = language
+        self.language: Language = creator.language
         
-        self.creator_id :str = creator_id
-        self.channel_id:str = channel_id
-        self.guild_id:str = guild_id
+        self.creator_id :str = creator.creator_id
+        self.channel_id:str = creator.channel_id
+        self.guild_id:str = creator.guild_id
 
-        self.card_grid = CardGrid(language=language, starting_team_color=self.color_state)
+        self.card_grid = CardGrid(language=creator.language, starting_team_color=self.color_state, team_list=self.team_colors)
 
         self.player_list: dict[str, Player] = {}
         self.spies: dict[ColorCard, Player] = {}
-        self.teams:dict[ColorCard, list[Player]] = {ColorCard.BLUE:[], ColorCard.RED:[]}
+        self.teams:dict[ColorCard, list[Player]] = {color:[] for color in self.team_colors}
 
         self.last_word_suggested:str = ""
         self.last_number_hint:int = 0
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
     
-    async def join(self, user: di.User, team_color: ColorCard, can_be_spy:bool=False):
+    async def join(self, user: di.User, team_color: ColorCard, can_be_spy: bool | None):
         """add a user to the game. 
             If the Player is already in the game, switch there team color.
 
         Args:
             user (di.User): the discord user that write the command
             team_color (ColorCard): the color of the desired team
-            can_be_spy (str): indicate if the player want to be a spy for the game
+            can_be_spy (bool | None): indicate if the player want to be a spy for the game. if can_be_spy == None : invert the bool
 
         Raises:
             GameAlreadyStarted: when the game is already started
+            TeamNotAvailable: when the team given is not is the teams list of the game
         """
         if self.state != State.WAITING:
             raise GameAlreadyStarted(self.language)
@@ -87,7 +89,8 @@ class Game(object):
             # change team color
             player.team_color = team_color
             # change can_be_spy state
-            player.can_be_spy = can_be_spy
+            if can_be_spy != None :
+                player.can_be_spy = can_be_spy
 
             self.teams[team_color].append(player)
             return
@@ -141,18 +144,19 @@ class Game(object):
             case State.WIN:
                 pass
 
-    def who_won(self) -> ColorCard | None:
-        """return the ColorCard of the team that win if it the case, else return None
+    def is_won(self) -> bool:
+        """return if the game is won by some team(s). Edit the value of self.winners with the list of winners teams
 
         Returns:
-            ColorCard | None: the State of the team that win if it the case, else return None
+            bool: True if a or some team(s) won the game
         """
         i = 0
         while i < len(self.team_colors):
             color_team = self.team_colors[i]
             i += 1
             if self.card_grid.remaining_words_count[color_team] <= 0:
-                return color_team
+                self.winners = [color_team]
+                return True
         # exit condition : i >= len(self.team_colors) : no winner
 
         # Black card found
@@ -160,8 +164,9 @@ class Game(object):
             # return all teams except the team that found black card
             temp_team_colors = self.team_colors.copy()
             temp_team_colors.remove(self.color_state)
-            return temp_team_colors
-        return None
+            self.winners = temp_team_colors
+            return True
+        return False
 
     def nb_player_in_team(self, team_color:ColorCard) -> int:
         """return the number of player in the specified "team_color" team
@@ -184,10 +189,13 @@ class Game(object):
             # get the list of pretenders in the team
             spy_pretenders = [player for player in self.teams[team_color] if player.can_be_spy]
 
+            # reset can_be_spy (for display)
+            for player in spy_pretenders:
+                player.can_be_spy = False
+
             # if no spy pretender : chose a spy in the whole team
             if len(spy_pretenders) == 0:
                 spy_pretenders = self.teams[team_color]
-
             spy: Player = random.choice(spy_pretenders)
             spy.isSpy = True
             self.spies[team_color] = spy
@@ -213,6 +221,7 @@ class Game(object):
         while i < len(self.team_colors):
             if self.nb_player_in_team(self.team_colors[i]) < self.nb_minimum_player:
                 raise NotEnoughPlayerInTeam(self.language)
+            i += 1
         
         self.chose_spies()
 
@@ -341,9 +350,9 @@ class Game(object):
             newWord = unidecode.unidecode(word).upper().split(" ")[0]
             (color, word_found) = self.card_grid.guess(newWord) # can raise WordNotInGrid
 
-            self.winner = self.who_won()
-            # a team win or guess a wrong color
-            if self.winner != None or color != player.team_color:
+            isWon = self.is_won()
+            # a team won or player guessed a wrong color
+            if isWon or color != player.team_color:
                 self.next_state()
             # one or more proposition left
             elif self.last_number_hint > 0:
@@ -454,7 +463,27 @@ class Game(object):
         player:Player = self.player_list[user.id]
         return self.get_image_path(player.isSpy) # can raise GameNotStarted
 
+    def invert_can_be_spy(self, user:di.User):
+        """invert the state of 'can_be_spy' field of the player
+
+        Args:
+            user (di.User): the user running the command
+
+        Raises:
+            NotInGame: if the player is not in the game
+            GameAlreadyStarted: when the game is already started
+        """
+        if user.id not in self.player_list:
+            raise NotInGame(self.language)
         
+        if self.state != State.WAITING:
+            raise GameAlreadyStarted(self.language)
+        
+        player:Player = self.player_list[user.id]
+        player.can_be_spy = not player.can_be_spy
+
+    def get_all_pretenders_id(self) -> list[int]:
+        return [p.user.id for p in self.player_list.values() if p.can_be_spy]
         
 
 
