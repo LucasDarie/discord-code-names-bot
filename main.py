@@ -17,7 +17,6 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
 bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
-bot.load('interactions.ext.files')
 
 GAME_LIST = GameList()
 
