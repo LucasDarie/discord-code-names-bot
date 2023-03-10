@@ -194,6 +194,7 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
     name="nb_teams",
     required=True,
     choices=[
+        interactions.Choice(name="1", value=1),
         interactions.Choice(name="2", value=2),
         interactions.Choice(name="3", value=3),
         interactions.Choice(name="4", value=4)
