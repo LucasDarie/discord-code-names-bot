@@ -10,6 +10,8 @@ from Game import Game, State
 from ButtonLabel import ButtonLabel
 from Creator import Creator
 import random
+import io
+from interactions.ext.files import command_send
 
 load_dotenv()
 
@@ -17,6 +19,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
 bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
+bot.load('interactions.ext.files')
 
 GAME_LIST = GameList()
 
@@ -194,6 +197,7 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
     name="nb_teams",
     required=True,
     choices=[
+        interactions.Choice(name="1", value=1),
         interactions.Choice(name="2", value=2),
         interactions.Choice(name="3", value=3),
         interactions.Choice(name="4", value=4)
@@ -411,6 +415,29 @@ async def skip(ctx: interactions.CommandContext):
                        \n{state_message(game)}", components=state_component(game))
     except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, NoWordGuessed) as e:
         await ctx.send(e.message, ephemeral=True)
+
+
+@bot.command(
+    name="setlist",
+    description="Send a file.",
+)
+@interactions.option(
+    description="the list of word in a txt file",
+    type=interactions.OptionType.ATTACHMENT,
+    name="file"
+)
+async def setlist(ctx: interactions.CommandContext, file: interactions.Attachment):
+    guild = await ctx.get_guild()
+    if not file.filename.endswith(".txt"):
+        return await ctx.send("The file must be a tkt file")
+    if file.size > 15000:
+        print(file.size)
+        size_kB = str(file.size/1000)
+        return await ctx.send(f"The file is too large. Received: {size_kB[:size_kB.find('.')+2]}kB, max: 15kB", ephemeral=True)
+    file = await file.download()
+    wrapper = io.TextIOWrapper(file, encoding='utf-8')
+    with open(f"words/servers/{str(guild.id)}_word_list.txt", "w") as f:
+        f.write(wrapper.read())
     
 
 
