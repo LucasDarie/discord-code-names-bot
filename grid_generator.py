@@ -52,7 +52,7 @@ def addTextTo(img, text:str, card_id:int):
 
 
 
-def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
+def getImageColored(img: Image, color: ColorCard, guessed:bool, isSpy:bool=False):
     # get the value of the color, used in files like "RED_GUESS.png"
     color_name = color.value
 
