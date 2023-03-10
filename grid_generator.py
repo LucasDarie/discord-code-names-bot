@@ -106,7 +106,7 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
             img_with_color = getImageColored(img_with_text, color=card.color, guessed=card.guessed, isSpy=isSpy)
             
             # paste the card to the canvas grid
-            canvas.paste(img_with_color, (x, y), img_with_color)
+            canvas.paste(img_with_color, (x, y), image)
 
 
     c = canvas.reduce(2)
