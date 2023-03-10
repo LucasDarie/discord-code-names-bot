@@ -2,7 +2,6 @@ import interactions
 import os
 from dotenv import load_dotenv
 from GameList import GameList
-import asyncio
 from Language import Language
 from ColorCard import ColorCard
 from CodeGameExceptions import *
@@ -11,7 +10,6 @@ from ButtonLabel import ButtonLabel
 from Creator import Creator
 import random
 import io
-from interactions.ext.files import command_send
 
 load_dotenv()
 
@@ -19,7 +17,6 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
 bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
-bot.load('interactions.ext.files')
 
 GAME_LIST = GameList()
 
