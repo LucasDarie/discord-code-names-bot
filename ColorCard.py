@@ -1,18 +1,26 @@
+from __future__ import annotations
 import enum
 from Language import Language
+from interactions import Emoji
 
 class ColorCard(enum.Enum):
    WHITE = "WHITE"
    RED = "RED"
    BLUE = "BLUE"
+   GREEN = "GREEN"
+   YELLOW = "YELLOW"
    BLACK = "BLACK"
 
    def display(self, language:Language=Language.EN, female=False) -> str:
       match self:
          case ColorCard.RED:
-            return "🟥 " + self.translate(language, female)
+            return "<:red_diamond:1082757439830634547> " + self.translate(language, female)
          case ColorCard.BLUE:
             return "🔵 " + self.translate(language, female)
+         case ColorCard.GREEN:
+            return "<:green_triangle:1082752939619274812> " + self.translate(language, female)
+         case ColorCard.YELLOW:
+            return "<:yellow_star:1082752942785953852> " + self.translate(language, female)
          case ColorCard.BLACK:
             return "🔳 " + self.translate(language, female)
          case _:
@@ -35,9 +43,45 @@ class ColorCard(enum.Enum):
                   return "ROUGE"
                case ColorCard.BLUE:
                   return "BLEUE" if female else "BLEU"
+               case ColorCard.GREEN:
+                  return "VERTE" if female else "VERT"
+               case ColorCard.YELLOW:
+                  return "JAUNE"
                case ColorCard.BLACK:
                   return "NOIRE" if female else "NOIRE"
                case ColorCard.WHITE:
                   return "BLANCHE" if female else "BLANC"
          case _:
             return self.value
+         
+   def get_emoji(self) -> Emoji:
+      match self:
+         case ColorCard.BLUE:
+            return Emoji(name="🔵")
+         case ColorCard.RED:
+            return Emoji(id="1082757439830634547", name="red_diamond")
+         case ColorCard.GREEN:
+            return Emoji(id="1082752939619274812", name="green_triangle")
+         case ColorCard.YELLOW:
+            return Emoji(id="1082752942785953852", name="yellow_star")
+         
+      
+   @classmethod
+   def get_by_string(cls, color_string:str) -> ColorCard:
+      """return a ColorCard object with a string given in parameters
+
+      Args:
+          color_string (str): the ColorCard.value string of a color
+
+      Returns:
+          ColorCard: the color card object corresponding
+      """
+      match color_string:
+         case ColorCard.BLUE.value:
+            return ColorCard.BLUE
+         case ColorCard.RED.value:
+            return ColorCard.RED
+         case ColorCard.GREEN.value:
+            return ColorCard.GREEN
+         case ColorCard.YELLOW.value:
+            return ColorCard.YELLOW

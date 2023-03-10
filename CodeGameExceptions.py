@@ -52,9 +52,9 @@ class NotEnoughPlayerInTeam(CodeNamesException):
     def __init__(self, language:Language):
         match language:
             case Language.FR:
-                message = "Les deux équipes doivent avoir au moins 2 joueurs chacune"
+                message = "Toutes les équipes doivent avoir au moins 2 joueurs"
             case _:
-                message = "Both teams need to have at least 2 players each"
+                message = "All teams need to have at least 2 players each"
         super().__init__(language, message)
 
 class NotYourTurn(CodeNamesException):
@@ -144,4 +144,14 @@ class GameNotStarted(CodeNamesException):
                 message = "La partie n'a pas commencé"
             case _:
                 message = "The game did not start"
+        super().__init__(language, message)
+
+class TeamNotAvailable(CodeNamesException):
+    "Raised when a command is used but the game is not yet started"
+    def __init__(self, language:Language):
+        match language:
+            case Language.FR:
+                message = "Cette équipe n'est pas disponible pour cette partie"
+            case _:
+                message = "Team not available for this game"
         super().__init__(language, message)

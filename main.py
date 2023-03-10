@@ -8,13 +8,15 @@ from ColorCard import ColorCard
 from CodeGameExceptions import *
 from Game import Game, State
 from ButtonLabel import ButtonLabel
+from Creator import Creator
+import random
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
-bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID)#, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
+bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
 
 GAME_LIST = GameList()
 
@@ -29,12 +31,32 @@ def get_team_message(game:Game, color:ColorCard, withSpy:bool=True) -> str:
     Returns:
         str: the list of player @ for discord uses, seperatded by commas
     """
-    return str([f"<@{p.user.id}>" for p in game.teams[color] if withSpy or not p.isSpy]).translate({ord('['):None, ord('\''):None, ord(']'):None})
+    return str([f"{random.choice([':detective:', ':man_detective:', ':woman_detective:']) if p.can_be_spy or p.isSpy else ''}<@{p.user.id}>" for p in game.teams[color] if withSpy or not p.isSpy]).translate({ord('['):None, ord('\''):None, ord(']'):None})
 
 def players_turn_message(game:Game) -> str:
-    return f"{game.state.color().display()} PLAYERS' turn: {get_team_message(game, game.state.color(), withSpy=False)}\
+    return f"{game.color_state.display()} PLAYERS' turn: {get_team_message(game, game.color_state, withSpy=False)}\
         \nHint: `{game.last_word_suggested}`\nNumber of tries remaining: `{game.last_number_hint}{' (+1 bonus)`' if game.bonus_proposition else '`'}\
         \n`/guess` to guess a word of your team's color"
+
+def remaining_words_messages(game:Game) -> str:
+    msg=""
+    for tc in game.team_colors:
+        msg += f"\n{tc.display()} words remaining : `{game.card_grid.remaining_words_count[tc]}`"
+    return msg
+
+def winning_message(game:Game) -> str:
+    msg = ""
+    for team_color in game.winners:
+        msg += f"\n{team_color.display()} TEAM WON! GG {get_team_message(game, color=team_color)}"
+    msg += "\n\nFINAL GRID :"
+    return msg
+
+def starting_message(game:Game) -> str:
+    start_message = "🔲 `STARTS`"
+    msg = ""
+    for team_color in game.team_colors:
+        msg += f"\n{team_color.display()} SPY: <@{game.spies[team_color].user.id}>{start_message if team_color == game.color_state else ''}"
+    return msg
 
 def get_display_button(language:Language) -> list[interactions.Button]:
     return [interactions.Button(
@@ -56,22 +78,22 @@ def state_message(game:Game) -> str:
     match game.state:
         case State.WAITING:
             return "Waiting for game creator to start the game"
-        case State.BLUE_SPY | State.RED_SPY:
-            return f"{game.state.color().display()} SPY's turn : <@{game.spies[game.state.color()].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
-        case State.BLUE_PLAYER | State.RED_PLAYER:
+        case State.SPY:
+            return f"{game.color_state.display()} SPY's turn : <@{game.spies[game.color_state].user.id}>\n`/display` to see your own grid\n`/suggest` to suggest a hint to your teammates"
+        case State.PLAYER:
             return players_turn_message(game)
-        case State.BLUE_WIN | State.RED_WIN:
-            return f"{game.state.color().display()} TEAM WIN! GG {get_team_message(game, color=game.state.color())}"
+        case State.WIN:
+            return winning_message(game)
 
 
 
-def state_component(game:Game) -> list[interactions.Button] | None:
+def state_component(game:Game) -> list[interactions.Button] | list[interactions.ActionRow] | None:
     match game.state:
         case State.WAITING:
-            return get_join_buttons(game.language)
-        case State.BLUE_SPY | State.RED_SPY:
+            return get_create_buttons(game)
+        case State.SPY:
             return get_display_button(game.language)
-        case State.BLUE_PLAYER | State.RED_PLAYER:
+        case State.PLAYER:
             # don't display skip button after /suggest message
             if game.one_word_found:
                 return get_skip_button(game.language)
@@ -86,7 +108,7 @@ async def test(ctx: interactions.CommandContext):
 
 
 @bot.command()
-@bot.component("display_grid_button_id")
+@bot.component(ButtonLabel.DISPLAY_GRID_BUTTON.value)
 async def display(ctx: interactions.CommandContext):
     """Display the grid depending on your role"""
     try:
@@ -96,39 +118,62 @@ async def display(ctx: interactions.CommandContext):
     except (GameNotFound, GameNotStarted, NotInGame, FileNotFoundError) as e:
         await ctx.send(e.message, ephemeral=True)
 
+@bot.component(ButtonLabel.SPY_BUTTON.value)
+async def spy(ctx: interactions.ComponentContext):
+    try:
+        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game.invert_can_be_spy(user=ctx.user)
+        await ctx.message.edit(
+            content=get_create_message(game), 
+            components=state_component(game),
+            allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
+        )
+        await ctx.edit(ctx.message.content)
 
+    except (GameNotFound, NotInGame, GameAlreadyStarted) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 def get_create_message(game:Game):
+    msg_team = ""
+    for team_color in game.team_colors:
+        msg_team += f"\n{team_color.display()} team : {get_team_message(game, color=team_color)}"
+
     return f"[{str(game.language.value).upper()}] {game.language.display()} Game created by <@{game.creator_id}>\
-                \n\
-                \n{ColorCard.BLUE.display()} team : {get_team_message(game, color=ColorCard.BLUE)}\
-                \n{ColorCard.RED.display()} team : {get_team_message(game, color=ColorCard.RED)}"
+            \n{msg_team}"
 
 
 
-def get_join_buttons(language:Language) -> list[interactions.Button]:
-    return [
+def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
+    join_buttons = [
         interactions.Button(
-            custom_id=ButtonLabel.BLUE_JOIN_BUTTON.value,
+            custom_id=ButtonLabel.get_by_color(team_color).value,
+            style=interactions.ButtonStyle.SECONDARY,
+            label=ButtonLabel.get_by_color(team_color).label(game.language),
+            emoji=team_color.get_emoji()
+        )
+        for team_color in game.team_colors
+    ]
+    join_buttons.append(
+        interactions.Button(
+            custom_id=ButtonLabel.SPY_BUTTON.value,
             style=interactions.ButtonStyle.PRIMARY,
-            label=ButtonLabel.BLUE_JOIN_BUTTON.label(language)
-        ),
-        interactions.Button(
-            custom_id=ButtonLabel.RED_JOIN_BUTTON.value,
-            style=interactions.ButtonStyle.DANGER,
-            label=ButtonLabel.RED_JOIN_BUTTON.label(language)
-        ),
+            label=ButtonLabel.SPY_BUTTON.label(game.language),
+            emoji=interactions.Emoji(name="🕵️‍♂️")
+        )
+    )
+    start_leave_buttons = [
         interactions.Button(
             custom_id=ButtonLabel.LEAVE_BUTTON.value,
-            style=interactions.ButtonStyle.SECONDARY,
-            label=ButtonLabel.LEAVE_BUTTON.label(language)
+            style=interactions.ButtonStyle.DANGER,
+            label=ButtonLabel.LEAVE_BUTTON.label(game.language)
         ),
         interactions.Button(
             custom_id=ButtonLabel.START_BUTTON.value,
             style=interactions.ButtonStyle.SUCCESS,
-            label=ButtonLabel.START_BUTTON.label(language)
+            label=ButtonLabel.START_BUTTON.label(game.language)
         ),
     ]
+    return [interactions.ActionRow(components=join_buttons), interactions.ActionRow(components=start_leave_buttons)]
 
 
 
@@ -143,12 +188,29 @@ def get_join_buttons(language:Language) -> list[interactions.Button]:
         interactions.Choice(name="English", value=Language.EN.value)
     ] 
 )
-async def create(ctx: interactions.CommandContext, language:str):
+@interactions.option(
+    description="Chose the number of team of the game",
+    type=interactions.OptionType.INTEGER,
+    name="nb_teams",
+    required=True,
+    choices=[
+        interactions.Choice(name="1", value=1),
+        interactions.Choice(name="2", value=2),
+        interactions.Choice(name="3", value=3),
+        interactions.Choice(name="4", value=4)
+    ] 
+)
+async def create(ctx: interactions.CommandContext, language:str, nb_teams:int):
     """Create a game of Code Names"""
-    lang = Language.FR if language == Language.FR.value else Language.EN
+    lang:Language = Language.get_by_string(language_string=language)
     try:
-        game = await GAME_LIST.create_game(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
-        await ctx.send(content=get_create_message(game), components=state_component(game))
+        creator = Creator(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
+        game:Game = await GAME_LIST.create_game(creator=creator, nb_teams=nb_teams)
+        await ctx.send(
+            content=get_create_message(game), 
+            components=state_component(game),
+            allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
+        )
     except GameInChannelAlreadyCreated as e:
         await ctx.send(e.message, ephemeral=True)
 
@@ -166,18 +228,23 @@ async def delete(ctx: interactions.CommandContext):
 
 async def join_team(
         ctx: interactions.ComponentContext | interactions.CommandContext, 
-        team:ColorCard, 
+        team:str, 
+        spy:bool,
         message:interactions.Message=None):
-    color = ColorCard.BLUE if team == ColorCard.BLUE.value else ColorCard.RED
+    color = ColorCard.get_by_string(color_string=team)
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
-        await game.join(ctx.user, team_color=color)
+        game:Game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        await game.join(ctx.user, team_color=color, can_be_spy=spy)
         if(message != None):
-            await message.edit(content=get_create_message(game), components=state_component(game))
+            await message.edit(
+                content=get_create_message(game), 
+                components=state_component(game), 
+                allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
+            )
             await ctx.edit(ctx.message.content)
         else:
             await ctx.send(f"{ctx.user.username} join the {color.display()} team !")
-    except (GameNotFound, GameAlreadyStarted) as e:
+    except (GameNotFound, GameAlreadyStarted, TeamNotAvailable) as e:
         await ctx.send(e.message, ephemeral=True)
 
 
@@ -189,37 +256,58 @@ async def join_team(
     name="team",
     required=True,
     choices=[
-        interactions.Choice(name="BLUE", value=ColorCard.BLUE.value),
-        interactions.Choice(name="RED", value=ColorCard.RED.value)
+        interactions.Choice(name=ColorCard.BLUE.value, value=ColorCard.BLUE.value),
+        interactions.Choice(name=ColorCard.RED.value, value=ColorCard.RED.value),
+        interactions.Choice(name=ColorCard.GREEN.value, value=ColorCard.GREEN.value),
+        interactions.Choice(name=ColorCard.YELLOW.value, value=ColorCard.YELLOW.value)
     ] 
 )
-async def join(ctx: interactions.CommandContext, team:str):
+@interactions.option(
+    description="True if you want to be chose to be the spy, else False",
+    name="spy",
+    type=interactions.OptionType.BOOLEAN,
+    required=False
+)
+async def join(ctx: interactions.CommandContext, team:str, spy:bool=False):
     """Join a game of Code Names"""
-    await join_team(ctx, team)
+    await join_team(ctx, team, spy=spy)
 
 
 
-@bot.component("red_join_button_id")
+@bot.component(ButtonLabel.RED_JOIN_BUTTON.value)
 async def on_login_red_click(ctx:interactions.ComponentContext):
-    await join_team(ctx, team=ColorCard.RED.value, message=ctx.message)
+    await join_team(ctx, team=ColorCard.RED.value, spy=None, message=ctx.message)
 
 
-
-@bot.component("blue_join_button_id")
+@bot.component(ButtonLabel.BLUE_JOIN_BUTTON.value)
 async def on_login_blue_click(ctx:interactions.CommandContext):
-    await join_team(ctx, team=ColorCard.BLUE.value, message=ctx.message)
+    await join_team(ctx, team=ColorCard.BLUE.value, spy=None, message=ctx.message)
+
+
+@bot.component(ButtonLabel.GREEN_JOIN_BUTTON.value)
+async def on_login_blue_click(ctx:interactions.CommandContext):
+    await join_team(ctx, team=ColorCard.GREEN.value, spy=None, message=ctx.message)
+
+
+@bot.component(ButtonLabel.YELLOW_JOIN_BUTTON.value)
+async def on_login_blue_click(ctx:interactions.CommandContext):
+    await join_team(ctx, team=ColorCard.YELLOW.value, spy=None, message=ctx.message)
 
 
 
 @bot.command()
-@bot.component("leave_button_id")
+@bot.component(ButtonLabel.LEAVE_BUTTON.value)
 async def leave(ctx: interactions.CommandContext):
     """leave a game that did not start"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game:Game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.leave(ctx.user)
         if(ctx.message != None):
-            await ctx.message.edit(content=get_create_message(game), components=state_component(game))
+            await ctx.message.edit(
+                content=get_create_message(game), 
+                components=state_component(game),
+                allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
+            )
             await ctx.send(f"You left the game", ephemeral=True)
         else:
             await ctx.send(f"{ctx.user.username} left the game")
@@ -229,23 +317,21 @@ async def leave(ctx: interactions.CommandContext):
 
 
 @bot.command()
-@bot.component("start_button_id")
+@bot.component(ButtonLabel.START_BUTTON.value)
 async def start(ctx: interactions.CommandContext):
     """Start the game of Code Names"""
     try:
         game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
         await game.start(ctx.user.id)
-        color = game.starting_team_color
-        start_message = "🔲 `STARTS`"
         image = interactions.File(game.get_image_path())
         await ctx.send(f"The `Code Names` game is starting LET'S GOOO!\
                        \n\
-                       \n{ColorCard.BLUE.display()} SPY: <@{game.spies[ColorCard.BLUE].user.id}>{start_message if color == ColorCard.BLUE else ''}\
-                       \n{ColorCard.RED.display()} SPY: <@{game.spies[ColorCard.RED].user.id}>{start_message if color == ColorCard.RED else ''}\
+                       \n{starting_message(game)}\
                        \n\
                        \n{state_message(game)}",
                     components=state_component(game),
-                    files=image
+                    files=image,
+                    allowed_mentions=interactions.AllowedMentions(users=[game.spies[game.color_state].user.id])
         )
         # await ctx.send(state_message(game), components=state_component(game))
     except (GameNotFound, NotGameCreator, GameAlreadyStarted, NotEnoughPlayerInTeam) as e:
@@ -299,23 +385,23 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
             # can't happen
             await ctx.send("An error occured. Try again")
             return
-        image = interactions.File(game.get_image_path(isSpy=(game.state in [State.BLUE_WIN, State.RED_WIN])))
+        image = interactions.File(game.get_image_path(isSpy=(game.state== State.WIN)))
         await ctx.send(f"The word {word_found} was {card_color.display()}\
-                       \n{ColorCard.BLUE.display()} words remaining : `{game.card_grid.remaining_words_count[ColorCard.BLUE]}`\
-                       \n{ColorCard.RED.display()}  words remaining : `{game.card_grid.remaining_words_count[ColorCard.RED]}`\
                        \n\
-                       \n{state_message(game)}", 
+                       {remaining_words_messages(game)}\
+                       \n\
+                       \n{state_message(game)}",
                        files=image, 
                        components=state_component(game)
         )
-        if game.state in [State.BLUE_WIN, State.RED_WIN]:
+        if game.state == State.WIN:
             await GAME_LIST.delete_game(game.channel_id, language=Language.get_discord_equivalent(ctx.locale))
 
     except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, WordNotInGrid, WrongCardIdNumberGiven) as e:
         await ctx.send(e.message, ephemeral=True)
 
 @bot.command()
-@bot.component("skip_button_id")
+@bot.component(ButtonLabel.SKIP_BUTTON.value)
 async def skip(ctx: interactions.CommandContext):
     """End the player turn if at least one word is proposed"""
     try:

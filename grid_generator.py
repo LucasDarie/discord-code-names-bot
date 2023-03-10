@@ -17,12 +17,6 @@ CARD_WIDTH = 660
 # padding around cards
 PADDING = 10
 
-# height ands width of the final grid
-HEIGHT = (CARD_HEIGHT + PADDING) * GRID_SIZE
-WIDTH = (CARD_WIDTH + PADDING) * GRID_SIZE
-
-# Créer une image noire
-CANVAS = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
 
 IMAGE = Image.open('images/BASE.png')
 
@@ -86,10 +80,16 @@ def getImageColored(img, color: ColorCard, guessed:bool, isSpy:bool=False):
 
 
 async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
+    # height and width of the final grid
+    height = (CARD_HEIGHT + PADDING) * card_grid.grid_size
+    width = (CARD_WIDTH + PADDING) * card_grid.grid_size
+
+    # Créer une image noire
+    canvas = Image.new('RGBA', (width, height), (0, 0, 0, 0))
 
     # Loop on the 25 cards
-    for i in range(GRID_SIZE):
-        for j in range(GRID_SIZE):
+    for i in range(card_grid.grid_size):
+        for j in range(card_grid.grid_size):
             image = IMAGE.copy()
             card = card_grid.card_list[i][j]
 
@@ -99,23 +99,23 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
 
             # add text to the image
             
-            img_with_text = addTextTo(image, card.word, card_id=(i*GRID_SIZE+j+1))
+            img_with_text = addTextTo(image, card.word, card_id=(i*card_grid.grid_size+j+1))
 
             # add the layer depending on the color, guessed state and isSpy booleans
 
             img_with_color = getImageColored(img_with_text, color=card.color, guessed=card.guessed, isSpy=isSpy)
             
             # paste the card to the canvas grid
-            CANVAS.paste(img_with_color, (x, y), img_with_color)
+            canvas.paste(img_with_color, (x, y), img_with_color)
 
 
-    c = CANVAS.reduce(2)
+    c = canvas.reduce(2)
     c.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
 
 
 if __name__ == "__main__":
-    cardGrid = CardGrid(language=Language.FR, starting_team_color=ColorCard.BLUE)
+    cardGrid = CardGrid(language=Language.FR, starting_team_color=ColorCard.BLUE, team_list=[ColorCard.BLUE, ColorCard.RED, ColorCard.GREEN, ColorCard.YELLOW])
     cardGrid.card_list[0][0].guessed = True
     cardGrid.card_list[3][2].guessed = True
     cardGrid.card_list[0][4].guessed = True
@@ -123,4 +123,4 @@ if __name__ == "__main__":
     cardGrid.card_list[2][0].guessed = True
     cardGrid.card_list[0][0].guessed = True
     cardGrid.card_list[0][0].guessed = True
-    asyncio.run(generateGrid(cardGrid, isSpy=True, channel_id="123456789"))
+    asyncio.run(generateGrid(cardGrid, isSpy=False, channel_id="123456789"))
