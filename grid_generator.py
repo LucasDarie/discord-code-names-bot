@@ -39,7 +39,7 @@ def addTextTo(img, text:str, card_id:int):
     # place the word text and draw it on the card
     x_text = (CARD_WIDTH - text_width) / 2
     y_text = (CARD_HEIGHT) / 2 + text_height - 4
-    draw.text((x_text, y_text), text_u, font=font, fill=(0, 0, 0, 255), )
+    draw.text((x_text, y_text), text_u, font=font, fill=(0, 0, 0, 255))
 
 
     # place the card_id text and draw it on the card
