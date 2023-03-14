@@ -147,11 +147,31 @@ class GameNotStarted(CodeNamesException):
         super().__init__(language, message)
 
 class TeamNotAvailable(CodeNamesException):
-    "Raised when a command is used but the game is not yet started"
+    "Raised when a team is chosen but is not present in the game"
     def __init__(self, language:Language):
         match language:
             case Language.FR:
                 message = "Cette équipe n'est pas disponible pour cette partie"
             case _:
                 message = "Team not available for this game"
+        super().__init__(language, message)
+
+class WordListFileNotFound(CodeNamesException):
+    "Raised when a word list file is trying to be open but is not found"
+    def __init__(self, language:Language):
+        match language:
+            case Language.FR:
+                message = "Aucun fichier de mots trouvé. Utilisez `/upload` avec un fichier `.txt` pour créer une liste de mot personnalisés"
+            case _:
+                message = "No word file found. Use `/upload` with a `.txt` file to create a list of custom words"
+        super().__init__(language, message)
+
+class NotEnoughWordsInFile(CodeNamesException):
+    "Raised when there is not enough word in the available word list to start a game"
+    def __init__(self, language:Language):
+        match language:
+            case Language.FR:
+                message = "Il n'y a pas assez de mot dans le fichier de votre serveur pour commencer la partie. Utilisez `/upload` avec un fichier `.txt` pour envoyer un nouveau fichier de mots"
+            case _:
+                message = "No word file found. Use `/upload` with a `.txt` file to upload a new file with more custom words"
         super().__init__(language, message)
