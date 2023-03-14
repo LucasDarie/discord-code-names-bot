@@ -28,7 +28,7 @@ class Player(object):
 class Game(object):
     
 
-    def __init__(self, creator:Creator, nb_teams:int) -> None:
+    def __init__(self, creator:Creator, nb_teams:int, default_word_list:bool, server_word_list:bool) -> None:
         """constructeur of a Game object
 
         Args:
@@ -36,6 +36,10 @@ class Game(object):
             creator_id (str): the discord id of the creator of the game
             channel_id (str): the channel id where the game has been created
             guild_id (str) : the guild id where the game has been created
+
+        Raises:
+            WordListFileNotFound: if the word file of the guild_id is not found
+            NotEnoughWordsInFile: Raised when there is not enough word in the available word list to start a game
         """
         super(Game, self).__init__()
         self.team_colors: list[ColorCard] = [ColorCard.BLUE, ColorCard.RED, ColorCard.GREEN, ColorCard.YELLOW][:nb_teams]
@@ -51,7 +55,16 @@ class Game(object):
         self.channel_id:str = creator.channel_id
         self.guild_id:str = creator.guild_id
 
-        self.card_grid = CardGrid(language=creator.language, starting_team_color=self.color_state, team_list=self.team_colors)
+        try:
+            self.card_grid = CardGrid(
+                language=creator.language, 
+                starting_team_color=self.color_state, 
+                team_list=self.team_colors,
+                default_word_list=default_word_list, 
+                guild_id_for_list=creator.guild_id if server_word_list else None
+            )
+        except (WordListFileNotFound, NotEnoughWordsInFile):
+            raise
 
         self.player_list: dict[str, Player] = {}
         self.spies: dict[ColorCard, Player] = {}
