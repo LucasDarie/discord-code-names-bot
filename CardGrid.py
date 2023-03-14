@@ -2,32 +2,49 @@ from ColorCard import ColorCard
 from Language import Language
 from Card import Card
 import random
-import unidecode
-from CodeGameExceptions import WrongCardIdNumberGiven, WordNotInGrid
-
+from CodeGameExceptions import WrongCardIdNumberGiven, WordNotInGrid, WordListFileNotFound, NotEnoughWordsInFile
+from word_list import read_list_file
 GRID_SIZE = 5
 
 class CardGrid(object):
     
-    def __init__(self, language:Language, starting_team_color:ColorCard, team_list:list[ColorCard]) -> None:
+    def __init__(self, language:Language, starting_team_color:ColorCard, team_list:list[ColorCard], default_word_list:bool=True, guild_id_for_list:str | None = None) -> None:
         """constructor of the CardGrid object
 
         Args:
             language (Language): the langage of the grid
             starting_team_color (ColorCard): the color of the team that starts
             team_list (list[ColorCard]): the list of color team present in the grid
+            default_word_list (bool): True : the default word list of the language will be used. False : not
+            guild_id_for_list (str): the guild_id of the guild. If mentionned the guild_word_list will be added, if it's None it will not. Default to: None
+
+        Raises:
+            WordListFileNotFound: if the word file of the guild_id is not found
+            NotEnoughWordsInFile: Raised when there is not enough word in the available word list to start a game
         """
         super(CardGrid, self).__init__()
         
         self.grid_size = 3 + len(team_list)
 
-        word_list:list[str]
+        words:list[str] = []
 
-        with open(f"words/{language.value}_word_list.txt", "r") as f:
-            words = [unidecode.unidecode(word.strip()).upper() for word in f.readlines()]
-            word_list = random.sample(words, self.grid_size**2)
+        if default_word_list:
+            words.extend(read_list_file(path=f"words/{language.value}_word_list.txt"))
+
+        if guild_id_for_list != None:
+            try:
+                    words_to_add = read_list_file(path=f"words/servers/{guild_id_for_list}_word_list.txt")
+                    words.extend(words_to_add)
+            except Exception as e:
+                print(e)
+                raise WordListFileNotFound(language=language)
+
+        if len(words) < self.grid_size**2:
+            raise NotEnoughWordsInFile(language=language)
+
+        words = list(dict.fromkeys(words)) # remove duplicates
+        word_list:list[str] = random.sample(words, self.grid_size**2)
         
-
         self.card_list:list[list[Card]] = [[Card(word_list[i*self.grid_size+j], ColorCard.WHITE) for j in range(self.grid_size)] for i in range(self.grid_size)]
         self.language: Language = language
         self.starting_team_color:ColorCard = starting_team_color
