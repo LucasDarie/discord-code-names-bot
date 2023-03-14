@@ -10,13 +10,14 @@ from ButtonLabel import ButtonLabel
 from Creator import Creator
 import random
 import io
+from word_list import write_list_file
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 
-bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
+bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID)#, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
 
 GAME_LIST = GameList()
 
@@ -200,18 +201,34 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
         interactions.Choice(name="4", value=4)
     ] 
 )
-async def create(ctx: interactions.CommandContext, language:str, nb_teams:int):
+@interactions.option(
+    description="Select True if you want to play with the default word list of the selected language, else False",
+    name="default_word_list",
+    type=interactions.OptionType.BOOLEAN,
+    required=False
+)
+@interactions.option(
+    description="Select True if you want to play with your server word list, else False",
+    name="server_word_list",
+    type=interactions.OptionType.BOOLEAN,
+    required=False
+)
+async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, default_word_list:bool=True, server_word_list:bool=False):
     """Create a game of Code Names"""
     lang:Language = Language.get_by_string(language_string=language)
     try:
         creator = Creator(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
-        game:Game = await GAME_LIST.create_game(creator=creator, nb_teams=nb_teams)
+        game:Game = await GAME_LIST.create_game(
+            creator=creator, 
+            nb_teams=nb_teams, 
+            default_word_list=default_word_list, 
+            server_word_list=server_word_list)
         await ctx.send(
             content=get_create_message(game), 
             components=state_component(game),
             allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
         )
-    except GameInChannelAlreadyCreated as e:
+    except (GameInChannelAlreadyCreated, WordListFileNotFound, NotEnoughWordsInFile) as e:
         await ctx.send(e.message, ephemeral=True)
 
 
@@ -414,16 +431,14 @@ async def skip(ctx: interactions.CommandContext):
         await ctx.send(e.message, ephemeral=True)
 
 
-@bot.command(
-    name="setlist",
-    description="Send a file.",
-)
+@bot.command()
 @interactions.option(
-    description="the list of word in a txt file",
+    description=".txt with alphanumerical or `-` characters. 1 word (<12 char) per line, 1000 words max, no duplicate",
     type=interactions.OptionType.ATTACHMENT,
     name="file"
 )
-async def setlist(ctx: interactions.CommandContext, file: interactions.Attachment):
+async def upload(ctx: interactions.CommandContext, file: interactions.Attachment):
+    """Send a list of word in a `.txt` file"""
     guild = await ctx.get_guild()
     if not file.filename.endswith(".txt"):
         return await ctx.send("The file must be a tkt file")
@@ -433,9 +448,8 @@ async def setlist(ctx: interactions.CommandContext, file: interactions.Attachmen
         return await ctx.send(f"The file is too large. Received: {size_kB[:size_kB.find('.')+2]}kB, max: 15kB", ephemeral=True)
     file = await file.download()
     wrapper = io.TextIOWrapper(file, encoding='utf-8')
-    with open(f"words/servers/{str(guild.id)}_word_list.txt", "w") as f:
-        f.write(wrapper.read())
-    
+    write_list_file(wrapper, max_word=1000, max_length_word=11, guild_id=str(guild.id))
+    return await ctx.send("File added")
 
 
 bot.start()
