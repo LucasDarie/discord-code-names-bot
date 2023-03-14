@@ -1,7 +1,7 @@
 from CardGrid import CardGrid
 from Game import Game
 from Language import Language
-from CodeGameExceptions import GameInChannelAlreadyCreated, GameNotFound
+from CodeGameExceptions import GameInChannelAlreadyCreated, GameNotFound, WordListFileNotFound, NotEnoughWordsInFile
 import os
 from Creator import Creator
 
@@ -9,7 +9,7 @@ class GameList(object):
     def __init__(self) -> None:
         self.game_list :dict[str:Game]= {}
 
-    async def create_game(self, creator:Creator, nb_teams) -> Game:
+    async def create_game(self, creator:Creator, nb_teams, default_word_list, server_word_list) -> Game:
         """create a game in the channel
 
         Args:
@@ -21,13 +21,18 @@ class GameList(object):
             }
         Raises:
             GameInChannelAlreadyCreated: if a game is already created in the same channel
+            WordListFileNotFound: if the word file of the guild_id is not found
+            NotEnoughWordsInFile: Raised when there is not enough word in the available word list to start a game
 
         Returns:
             Game: the game created
         """
         if creator.channel_id in self.game_list:
             raise GameInChannelAlreadyCreated(creator.language)
-        newGame = Game(creator, nb_teams)
+        try:
+            newGame = Game(creator, nb_teams, default_word_list, server_word_list)
+        except (WordListFileNotFound, NotEnoughWordsInFile):
+            raise
         self.game_list[creator.channel_id] = newGame
         return newGame
 
