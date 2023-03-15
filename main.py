@@ -75,17 +75,26 @@ async def test(ctx: interactions.CommandContext):
 async def display(ctx: interactions.CommandContext):
     """Display the grid depending on your role"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         image = interactions.File(game.get_user_image_path(ctx.user))
         await ctx.send(files=image, ephemeral=True)
     except (GameNotFound, GameNotStarted, NotInGame, FileNotFoundError) as e:
-        await ctx.send(e.message, ephemeral=True)
+        if isinstance(e, FileNotFoundError):
+            message = Translator.get_error_message(language=Language.get_discord_equivalent(ctx.locale))
+        else :
+            message = e.message
+        await ctx.send(message, ephemeral=True)
 
 @bot.component(ButtonLabel.SPY_BUTTON.value)
 async def spy(ctx: interactions.ComponentContext):
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         game.invert_can_be_spy(user=ctx.user)
+
+        if ctx.message is None:
+            await ctx.send(Translator.get_error_message(language=game.language))
+            return
+        
         await ctx.message.edit(
             content=Translator.get_create_message(game), 
             components=state_component(game),
@@ -98,9 +107,9 @@ async def spy(ctx: interactions.ComponentContext):
 
 
 
-def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
+def get_create_buttons(game:Game) -> list[interactions.ActionRow] | None:
     join_buttons = [
-        interactions.Button(
+        interactions.Component(
             custom_id=ButtonLabel.get_by_color(team_color).value,
             style=interactions.ButtonStyle.SECONDARY,
             label=ButtonLabel.get_by_color(team_color).label(game.language),
@@ -109,7 +118,7 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
         for team_color in game.team_colors
     ]
     join_buttons.append(
-        interactions.Button(
+        interactions.Component(
             custom_id=ButtonLabel.SPY_BUTTON.value,
             style=interactions.ButtonStyle.PRIMARY,
             label=ButtonLabel.SPY_BUTTON.label(game.language),
@@ -117,12 +126,12 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
         )
     )
     start_leave_buttons = [
-        interactions.Button(
+        interactions.Component(
             custom_id=ButtonLabel.LEAVE_BUTTON.value,
             style=interactions.ButtonStyle.DANGER,
             label=ButtonLabel.LEAVE_BUTTON.label(game.language)
         ),
-        interactions.Button(
+        interactions.Component(
             custom_id=ButtonLabel.START_BUTTON.value,
             style=interactions.ButtonStyle.SUCCESS,
             label=ButtonLabel.START_BUTTON.label(game.language)
@@ -132,7 +141,7 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
 
 
 
-@bot.command()
+
 @interactions.option(
     description="Chose the language of the game",
     type=interactions.OptionType.STRING,
@@ -167,11 +176,12 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow]:
     type=interactions.OptionType.BOOLEAN,
     required=False
 )
+@bot.command()
 async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, default_word_list:bool=True, server_word_list:bool=False):
     """Create a game of Code Names"""
     lang:Language = Language.get_by_string(language_string=language)
     try:
-        creator = Creator(language=lang, channel_id=ctx.channel_id, creator_id=ctx.user.id, guild_id=ctx.guild_id)
+        creator = Creator(language=lang, channel_id=str(ctx.channel_id), creator_id=str(ctx.user.id), guild_id=str(ctx.guild_id))
         game:Game = await GAME_LIST.create_game(
             creator=creator, 
             nb_teams=nb_teams, 
@@ -192,7 +202,7 @@ async def delete(ctx: interactions.CommandContext):
     """Create a game of Code Names"""
     try:
         language:Language = Language.get_discord_equivalent(ctx.locale)
-        await GAME_LIST.delete_game(channel_id=ctx.channel_id, language=language)
+        await GAME_LIST.delete_game(channel_id=str(ctx.channel_id), language=language)
         await ctx.send(Translator.get_deleted_message(ctx.user.username, language=language))
     except GameNotFound as e:
         await ctx.send(e.message, ephemeral=True)
@@ -201,28 +211,32 @@ async def delete(ctx: interactions.CommandContext):
 async def join_team(
         ctx: interactions.ComponentContext | interactions.CommandContext, 
         team:str, 
-        spy:bool,
-        message:interactions.Message=None):
+        spy:bool | None,
+        message:interactions.Message | None =None):
     color = ColorCard.get_by_string(color_string=team)
     try:
-        game:Game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game:Game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         await game.join(ctx.user, team_color=color, can_be_spy=spy)
-        if(message != None):
-            await message.edit(
-                content=Translator.get_create_message(game), 
-                components=state_component(game), 
-                allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
-            )
-            # avoid "Error with interaction" message in discord
-            await ctx.edit(ctx.message.content)
-        else:
+        if message is None:
             await ctx.send(Translator.get_joined_message(ctx.user.username, color, language=game.language))
+            return
+        await message.edit(
+            content=Translator.get_create_message(game), 
+            components=state_component(game), 
+            allowed_mentions=interactions.AllowedMentions(users=game.get_all_pretenders_id())
+        )
+
+        # avoid "Error with interaction" message in discord
+        if ctx.message is None:
+            await ctx.send(Translator.get_error_message(language=game.language))
+            return
+        await ctx.edit(ctx.message.content)
+
     except (GameNotFound, GameAlreadyStarted, TeamNotAvailable) as e:
         await ctx.send(e.message, ephemeral=True)
 
 
 
-@bot.command()
 @interactions.option(
     description="Chose your team !",
     type=interactions.OptionType.STRING,
@@ -241,6 +255,7 @@ async def join_team(
     type=interactions.OptionType.BOOLEAN,
     required=False
 )
+@bot.command()
 async def join(ctx: interactions.CommandContext, team:str, spy:bool=False):
     """Join a game of Code Names"""
     await join_team(ctx, team, spy=spy)
@@ -258,12 +273,12 @@ async def on_login_blue_click(ctx:interactions.CommandContext):
 
 
 @bot.component(ButtonLabel.GREEN_JOIN_BUTTON.value)
-async def on_login_blue_click(ctx:interactions.CommandContext):
+async def on_login_green_click(ctx:interactions.CommandContext):
     await join_team(ctx, team=ColorCard.GREEN.value, spy=None, message=ctx.message)
 
 
 @bot.component(ButtonLabel.YELLOW_JOIN_BUTTON.value)
-async def on_login_blue_click(ctx:interactions.CommandContext):
+async def on_login_yellow_click(ctx:interactions.CommandContext):
     await join_team(ctx, team=ColorCard.YELLOW.value, spy=None, message=ctx.message)
 
 
@@ -273,7 +288,7 @@ async def on_login_blue_click(ctx:interactions.CommandContext):
 async def leave(ctx: interactions.CommandContext):
     """leave a game that did not start"""
     try:
-        game:Game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game:Game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         await game.leave(ctx.user)
         if(ctx.message != None):
             await ctx.message.edit(
@@ -294,15 +309,15 @@ async def leave(ctx: interactions.CommandContext):
 async def start(ctx: interactions.CommandContext):
     """Start the game of Code Names"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
-        await game.start(ctx.user.id)
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
+        await game.start(str(ctx.user.id))
         image = interactions.File(game.get_image_path())
         await ctx.send(f"\n{Translator.starting_message(game)}\
                        \n\
                        \n{Translator.state_message(game)}",
                     components=state_component(game),
                     files=image,
-                    allowed_mentions=interactions.AllowedMentions(users=[game.spies[game.color_state].user.id])
+                    allowed_mentions=interactions.AllowedMentions(users=[int(game.spies[game.color_state].user.id)])
         )
         # await ctx.send(state_message(game), components=state_component(game))
     except (GameNotFound, NotGameCreator, GameAlreadyStarted, NotEnoughPlayerInTeam) as e:
@@ -310,13 +325,13 @@ async def start(ctx: interactions.CommandContext):
 
 
 
-@bot.command()
 @interactions.option(description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info")
 @interactions.option(description="The number of tries your teammates will have to guess the words")
+@bot.command()
 async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int):
     """Suggest a hint to help your team to guess words. Provide also a number of try"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         await game.suggest(ctx.user, hint, number_of_try)
 
         await ctx.send(Translator.state_message(game), components=state_component(game))
@@ -345,9 +360,9 @@ async def card_id(ctx: interactions.CommandContext, card_id: int):
     await guess_by_func(ctx=ctx, card_id=card_id)
 
 
-async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id:int=None):
+async def guess_by_func(ctx: interactions.CommandContext, word:str | None = None, card_id: int | None = None):
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         if word == None and card_id != None:
             (card_color, word_found) = await game.guess_by_card_id(ctx.user, card_id)
         elif word != None and card_id == None:
@@ -376,7 +391,7 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str=None, card_id
 async def skip(ctx: interactions.CommandContext):
     """End the player turn if at least one word is proposed"""
     try:
-        game = await GAME_LIST.get_game(ctx.channel_id, language=Language.get_discord_equivalent(ctx.locale))
+        game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         await game.skip(ctx.user)
         await ctx.send(f"{Translator.get_skipped_message(player_name=ctx.user.username, language=game.language)}\
                        \n\
@@ -385,12 +400,12 @@ async def skip(ctx: interactions.CommandContext):
         await ctx.send(e.message, ephemeral=True)
 
 
-@bot.command()
 @interactions.option(
     description=".txt with alphanumerical or `-` characters. 1 word (<12 char) per line, 1000 words max, no duplicate",
     type=interactions.OptionType.ATTACHMENT,
     name="file"
 )
+@bot.command()
 async def upload(ctx: interactions.CommandContext, file: interactions.Attachment):
     """Send a list of word in a `.txt` file"""
     guild = await ctx.get_guild()
@@ -400,8 +415,8 @@ async def upload(ctx: interactions.CommandContext, file: interactions.Attachment
         print(file.size)
         size_kB = str(file.size/1000)
         return await ctx.send(f"The file is too large. Received: {size_kB[:size_kB.find('.')+2]}kB, max: 15kB", ephemeral=True)
-    file = await file.download()
-    wrapper = io.TextIOWrapper(file, encoding='utf-8')
+    downloaded_file = await file.download()
+    wrapper = io.TextIOWrapper(downloaded_file, encoding='utf-8')
     write_list_file(wrapper, max_word=1000, max_length_word=11, guild_id=str(guild.id))
     return await ctx.send("File added")
 
