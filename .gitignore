@@ -133,3 +133,6 @@ dmypy.json
 
 # server's word list
 words/servers
+
+# vscode
+/.vscode
