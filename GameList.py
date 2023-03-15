@@ -7,7 +7,7 @@ from Creator import Creator
 
 class GameList(object):
     def __init__(self) -> None:
-        self.game_list :dict[str:Game]= {}
+        self.game_list :dict[str, Game]= {}
 
     async def create_game(self, creator:Creator, nb_teams, default_word_list, server_word_list) -> Game:
         """create a game in the channel
@@ -36,7 +36,7 @@ class GameList(object):
         self.game_list[creator.channel_id] = newGame
         return newGame
 
-    async def delete_game(self, channel_id, language:Language):
+    async def delete_game(self, channel_id:str, language:Language):
         """delete the game of a channel
 
         Args:
@@ -63,7 +63,8 @@ class GameList(object):
         Returns:
             Game: the game of the channel
         """
-        if channel_id not in self.game_list:
+        game = self.game_list.get(channel_id)
+        if game is None:
             raise GameNotFound(language)
-        return self.game_list.get(channel_id)
+        return game
         
