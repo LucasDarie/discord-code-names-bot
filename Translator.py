@@ -126,7 +126,7 @@ def get_create_message(game:Game) -> str:
         match language:
             case Language.FR:
                 # TODO set color emoji at the start of the sentence in every language. 
-                msg_team += f"\nÉquipe {team_color.display(language=Language, female=True)} : {get_team_message(game, color=team_color)}"
+                msg_team += f"\nÉquipe {team_color.display(language=language, female=True)} : {get_team_message(game, color=team_color)}"
             case _:
                 msg_team += f"\n{team_color.display()} team: {get_team_message(game, color=team_color)}"
                 
