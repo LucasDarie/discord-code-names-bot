@@ -1,7 +1,7 @@
 from __future__ import annotations
 import enum
 from Language import Language
-from interactions import Emoji
+from interactions import Emoji, Snowflake
 
 class ColorCard(enum.Enum):
    WHITE = "WHITE"
@@ -11,7 +11,7 @@ class ColorCard(enum.Enum):
    YELLOW = "YELLOW"
    BLACK = "BLACK"
 
-   def display(self, language:Language=Language.EN, female=False) -> str:
+   def display(self:ColorCard, language:Language=Language.EN, female=False) -> str:
       match self:
          case ColorCard.RED:
             return "<:red_diamond:1082757439830634547> " + self.translate(language, female)
@@ -26,7 +26,7 @@ class ColorCard(enum.Enum):
          case _:
             return self.translate(language, female)
 
-   def translate(self, language:Language, female=False) -> str:
+   def translate(self:ColorCard, language:Language, female=False) -> str:
       """translate Colors name in selected Language, default to English
 
       Args:
@@ -54,16 +54,19 @@ class ColorCard(enum.Enum):
          case _:
             return self.value
          
-   def get_emoji(self) -> Emoji:
+   def get_emoji(self:ColorCard) -> Emoji:
       match self:
          case ColorCard.BLUE:
             return Emoji(name="🔵")
          case ColorCard.RED:
-            return Emoji(id="1082757439830634547", name="red_diamond")
+            return Emoji(id=Snowflake("1082757439830634547"), name="red_diamond")
          case ColorCard.GREEN:
-            return Emoji(id="1082752939619274812", name="green_triangle")
+            return Emoji(id=Snowflake("1082752939619274812"), name="green_triangle")
          case ColorCard.YELLOW:
-            return Emoji(id="1082752942785953852", name="yellow_star")
+            return Emoji(id=Snowflake("1082752942785953852"), name="yellow_star")
+         # can't happen
+         case _:
+            return Emoji()
          
       
    @classmethod
@@ -79,9 +82,18 @@ class ColorCard(enum.Enum):
       match color_string:
          case ColorCard.BLUE.value:
             return ColorCard.BLUE
+
          case ColorCard.RED.value:
             return ColorCard.RED
+
          case ColorCard.GREEN.value:
             return ColorCard.GREEN
+
          case ColorCard.YELLOW.value:
             return ColorCard.YELLOW
+
+         case ColorCard.BLACK.value:
+            return ColorCard.BLACK
+
+         case _:
+            return ColorCard.WHITE
