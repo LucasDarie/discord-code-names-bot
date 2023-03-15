@@ -25,8 +25,6 @@ GAME_LIST = GameList()
 
 
 
-
-
 @bot.user_command(name="User Command")
 async def test(ctx: interactions.CommandContext):
     if not isinstance(ctx.target, interactions.Member):
@@ -74,11 +72,6 @@ async def spy(ctx: interactions.ComponentContext):
 
     except (GameNotFound, NotInGame, GameAlreadyStarted) as e:
         await ctx.send(e.message, ephemeral=True)
-
-
-
-
-
 
 
 @interactions.option(
