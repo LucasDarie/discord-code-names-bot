@@ -20,7 +20,7 @@ PADDING = 10
 
 IMAGE = Image.open('images/BASE.png')
 
-def addTextTo(img, text:str, card_id:int):
+def addTextTo(img, text:str, card_id:int) -> Image.Image:
     # remove or replace special characters
     text_u = unidecode.unidecode(text).upper()
     card_id_str = f"#{card_id}"
@@ -52,12 +52,12 @@ def addTextTo(img, text:str, card_id:int):
 
 
 
-def getImageColored(img: Image, color: ColorCard, guessed:bool, isSpy:bool=False):
+def getImageColored(img: Image.Image, color: ColorCard, guessed:bool, isSpy:bool=False) -> Image.Image:
     # get the value of the color, used in files like "RED_GUESS.png"
     color_name = color.value
 
     # create a transparent canvas with img size and paste img
-    canvas = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    canvas:Image.Image = Image.new('RGBA', img.size, (0, 0, 0, 0))
     canvas.paste(img, (0, 0))
 
     if isSpy and not guessed:
@@ -81,11 +81,11 @@ def getImageColored(img: Image, color: ColorCard, guessed:bool, isSpy:bool=False
 
 async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
     # height and width of the final grid
-    height = (CARD_HEIGHT + PADDING) * card_grid.grid_size
-    width = (CARD_WIDTH + PADDING) * card_grid.grid_size
+    height: int = (CARD_HEIGHT + PADDING) * card_grid.grid_size
+    width: int = (CARD_WIDTH + PADDING) * card_grid.grid_size
 
     # Créer une image noire
-    canvas = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    canvas:Image.Image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
 
     # Loop on the 25 cards
     for i in range(card_grid.grid_size):
@@ -99,17 +99,17 @@ async def generateGrid(card_grid:CardGrid, isSpy:bool, channel_id:str):
 
             # add text to the image
             
-            img_with_text = addTextTo(image, card.word, card_id=(i*card_grid.grid_size+j+1))
+            img_with_text:Image.Image = addTextTo(image, card.word, card_id=(i*card_grid.grid_size+j+1))
 
             # add the layer depending on the color, guessed state and isSpy booleans
 
-            img_with_color = getImageColored(img_with_text, color=card.color, guessed=card.guessed, isSpy=isSpy)
+            img_with_color:Image.Image = getImageColored(img_with_text, color=card.color, guessed=card.guessed, isSpy=isSpy)
             
             # paste the card to the canvas grid
             canvas.paste(img_with_color, (x, y), image)
 
 
-    c = canvas.reduce(2)
+    c:Image.Image = canvas.reduce(2)
     c.save(f"render/{channel_id}{'_SPY' if isSpy else '_PLAYER'}.png")
 
 
