@@ -15,7 +15,7 @@ class Language(enum.Enum):
             return ""
    
    @classmethod
-   def get_discord_equivalent(cls, locale:interactions.Locale) -> Language:
+   def get_discord_equivalent(cls, locale:interactions.Locale | None) -> Language:
       match locale:
          case interactions.Locale.FRENCH:
             return Language.FR
