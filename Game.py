@@ -108,8 +108,8 @@ class Game(object):
             self.teams[team_color].append(player)
             return
         # else
-        p = Player(user=user, team_color=team_color, can_be_spy=can_be_spy)
-        self.player_list[user.id] = p
+        p = Player(user=user, team_color=team_color, can_be_spy=bool(can_be_spy))
+        self.player_list[str(user.id)] = p
         self.teams[team_color].append(p)
 
 
@@ -495,8 +495,8 @@ class Game(object):
         player:Player = self.player_list[user.id]
         player.can_be_spy = not player.can_be_spy
 
-    def get_all_pretenders_id(self) -> list[int]:
-        return [p.user.id for p in self.player_list.values() if p.can_be_spy]
+    def get_all_pretenders_id(self) -> list[str]:
+        return [str(p.user.id) for p in self.player_list.values() if p.can_be_spy]
         
 
 
