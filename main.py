@@ -17,6 +17,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
+GUILD_ID = int(GUILD_ID) if GUILD_ID != None and GUILD_ID.isnumeric() else None
 
 bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
 
@@ -58,6 +59,13 @@ def state_component(game:Game) -> list[interactions.Button] | list[interactions.
 
 @bot.user_command(name="User Command")
 async def test(ctx: interactions.CommandContext):
+    if not isinstance(ctx.target, interactions.Member):
+        await ctx.send(f"You have applied a command onto an unknown user!")
+        return
+    if ctx.target.user is None:
+        await ctx.send(f"You have applied a command onto None!")
+        return
+    
     await ctx.send(f"You have applied a command onto user {ctx.target.user.username}!")
 
 
