@@ -36,6 +36,23 @@ async def test(ctx: interactions.CommandContext):
     
     await ctx.send(f"You have applied a command onto user {ctx.target.user.username}!")
 
+# ================================
+# ============= MODAL ============
+# ================================
+@bot.command()
+async def my_cool_modal_command(ctx:interactions.CommandContext):
+    modal = interactions.Modal(
+        title="Application Form",
+        custom_id="mod_app_form",
+        components=[interactions.TextInput(style=interactions.TextStyleType.SHORT, label="Let's get straight to it: what's 1 + 1?", custom_id="text_input_response",min_length=1,max_length=3)], # type: ignore
+    )
+
+    await ctx.popup(modal)
+
+@bot.modal("mod_app_form")
+async def modal_response(ctx:interactions.CommandContext, response: str):
+    await ctx.send(f"You wrote: {response}", ephemeral=True)
+
 
 
 @bot.command()
@@ -74,6 +91,7 @@ async def spy(ctx: interactions.ComponentContext):
         await ctx.send(e.message, ephemeral=True)
 
 
+@bot.command() # type: ignore
 @interactions.option(
     description="Chose the language of the game",
     type=interactions.OptionType.STRING,
@@ -108,7 +126,6 @@ async def spy(ctx: interactions.ComponentContext):
     type=interactions.OptionType.BOOLEAN,
     required=False
 )
-@bot.command()
 async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, default_word_list:bool=True, server_word_list:bool=False):
     """Create a game of Code Names"""
     lang:Language = Language.get_by_string(language_string=language)
@@ -169,6 +186,7 @@ async def join_team(
 
 
 
+@bot.command() # type: ignore
 @interactions.option(
     description="Chose your team !",
     type=interactions.OptionType.STRING,
@@ -187,7 +205,6 @@ async def join_team(
     type=interactions.OptionType.BOOLEAN,
     required=False
 )
-@bot.command()
 async def join(ctx: interactions.CommandContext, team:str, spy:bool=False):
     """Join a game of Code Names"""
     await join_team(ctx, team, spy=spy)
@@ -257,9 +274,9 @@ async def start(ctx: interactions.CommandContext):
 
 
 
+@bot.command() # type: ignore
 @interactions.option(description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info")
 @interactions.option(description="The number of tries your teammates will have to guess the words")
-@bot.command()
 async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int):
     """Suggest a hint to help your team to guess words. Provide also a number of try"""
     try:
@@ -332,12 +349,12 @@ async def skip(ctx: interactions.CommandContext):
         await ctx.send(e.message, ephemeral=True)
 
 
+@bot.command() # type: ignore
 @interactions.option(
     description=".txt with alphanumerical or `-` characters. 1 word (<12 char) per line, 1000 words max, no duplicate",
     type=interactions.OptionType.ATTACHMENT,
     name="file"
 )
-@bot.command()
 async def upload(ctx: interactions.CommandContext, file: interactions.Attachment):
     """Send a list of word in a `.txt` file"""
     guild = await ctx.get_guild()
