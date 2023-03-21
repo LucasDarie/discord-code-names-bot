@@ -138,6 +138,7 @@ def state_component(game:Game) -> list[interactions.Button] | list[interactions.
 def get_create_buttons(game:Game) -> list[interactions.ActionRow] | None:
    join_buttons = [
       interactions.Component(
+         type=interactions.ComponentType.BUTTON,
          custom_id=CodeNamesButton.get_by_color(team_color).value,
          style=interactions.ButtonStyle.SECONDARY,
          label=CodeNamesButton.get_by_color(team_color).label(game.language),
@@ -147,6 +148,7 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow] | None:
    ]
    join_buttons.append(
       interactions.Component(
+         type=interactions.ComponentType.BUTTON,
          custom_id=CodeNamesButton.SPY_BUTTON.value,
          style=interactions.ButtonStyle.PRIMARY,
          label=CodeNamesButton.SPY_BUTTON.label(game.language),
@@ -155,11 +157,13 @@ def get_create_buttons(game:Game) -> list[interactions.ActionRow] | None:
    )
    start_leave_buttons = [
       interactions.Component(
+         type=interactions.ComponentType.BUTTON,
          custom_id=CodeNamesButton.LEAVE_BUTTON.value,
          style=interactions.ButtonStyle.DANGER,
          label=CodeNamesButton.LEAVE_BUTTON.label(game.language)
       ),
       interactions.Component(
+         type=interactions.ComponentType.BUTTON,
          custom_id=CodeNamesButton.START_BUTTON.value,
          style=interactions.ButtonStyle.SUCCESS,
          label=CodeNamesButton.START_BUTTON.label(game.language)
