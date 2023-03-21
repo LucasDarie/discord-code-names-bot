@@ -49,11 +49,20 @@ async def send_modal(ctx:interactions.CommandContext, game:Game):
 
 @bot.modal("spy_modal")
 async def spy_modal(ctx:interactions.CommandContext, hint: str, nb_try:str):
-    await ctx.send(f"ESPION: {hint}, {nb_try}", ephemeral=True)
+    try:
+        if(not nb_try.isnumeric()):
+            raise WrongHintNumberGiven(language=Language.get_discord_equivalent(ctx.locale))
+        await suggest(ctx=ctx, hint=hint, number_of_try=int(nb_try))
+    except WrongHintNumberGiven as e:
+        await ctx.send(e.message, ephemeral=True)
+    # await ctx.send(f"ESPION: {hint}, {nb_try}", ephemeral=True)
 
 @bot.modal("player_modal")
 async def player_modal(ctx:interactions.CommandContext, response: str):
-    await ctx.send(f"PLAYER: {response}", ephemeral=True)
+    if(response.isnumeric()):
+        await guess_by_func(ctx=ctx, card_id=int(response))
+    else:
+        await guess_by_func(ctx=ctx, word=response)
 
 
 
