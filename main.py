@@ -7,6 +7,7 @@ from ColorCard import ColorCard
 from CodeGameExceptions import *
 from Game import Game, State
 import CodeNamesButton as CNButton
+import CodeNamesTextInput as CNTextInput
 from CodeNamesButton import CodeNamesButton
 from Creator import Creator
 import io
@@ -39,19 +40,20 @@ async def test(ctx: interactions.CommandContext):
 # ================================
 # ============= MODAL ============
 # ================================
-@bot.command()
-async def my_cool_modal_command(ctx:interactions.CommandContext):
-    modal = interactions.Modal(
-        title="Application Form",
-        custom_id="mod_app_form",
-        components=[interactions.TextInput(style=interactions.TextStyleType.SHORT, label="Let's get straight to it: what's 1 + 1?", custom_id="text_input_response",min_length=1,max_length=3)], # type: ignore
-    )
 
+async def send_modal(ctx:interactions.CommandContext, game:Game):
+    modal = CNTextInput.state_modal(game)
+    if modal is None:
+        return await ctx.send(Translator.get_error_message(game.language))
     await ctx.popup(modal)
 
-@bot.modal("mod_app_form")
-async def modal_response(ctx:interactions.CommandContext, response: str):
-    await ctx.send(f"You wrote: {response}", ephemeral=True)
+@bot.modal("spy_modal")
+async def spy_modal(ctx:interactions.CommandContext, hint: str, nb_try:str):
+    await ctx.send(f"ESPION: {hint}, {nb_try}", ephemeral=True)
+
+@bot.modal("player_modal")
+async def player_modal(ctx:interactions.CommandContext, response: str):
+    await ctx.send(f"PLAYER: {response}", ephemeral=True)
 
 
 
@@ -229,6 +231,16 @@ async def on_login_green_click(ctx:interactions.CommandContext):
 @bot.component(CodeNamesButton.YELLOW_JOIN_BUTTON.value)
 async def on_login_yellow_click(ctx:interactions.CommandContext):
     await join_team(ctx, team=ColorCard.YELLOW.value, spy=None, message=ctx.message)
+
+@bot.component(CodeNamesButton.SPY_INTERACTION_BUTTON.value)
+@bot.component(CodeNamesButton.PLAYER_INTERACTION_BUTTON.value)
+async def on_base_action_click(ctx:interactions.CommandContext):
+    try:
+        game:Game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
+        await send_modal(ctx, game)
+
+    except (GameNotFound) as e:
+        await ctx.send(e.message, ephemeral=True)
 
 
 
