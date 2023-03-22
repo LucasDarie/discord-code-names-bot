@@ -7,7 +7,7 @@ from ColorCard import ColorCard
 from CodeGameExceptions import *
 from Game import Game, State
 import CodeNamesButton as CNButton
-import CodeNamesTextInput as CNTextInput
+import CodeNamesModal as CNTextInput
 from CodeNamesButton import CodeNamesButton
 from Creator import Creator
 import io
@@ -20,7 +20,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 GUILD_ID = os.getenv('GUILD_ID')
 GUILD_ID = int(GUILD_ID) if GUILD_ID != None and GUILD_ID.isnumeric() else None
 
-bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
+bot = interactions.Client(token=BOT_TOKEN, default_scope=GUILD_ID)#, presence=interactions.ClientPresence(status=interactions.StatusType.INVISIBLE))
 
 GAME_LIST = GameList()
 
@@ -28,6 +28,7 @@ GAME_LIST = GameList()
 
 @bot.user_command(name="User Command")
 async def test(ctx: interactions.CommandContext):
+    print(ctx.channel_id)
     if not isinstance(ctx.target, interactions.Member):
         await ctx.send(f"You have applied a command onto an unknown user!")
         return
@@ -37,9 +38,41 @@ async def test(ctx: interactions.CommandContext):
     
     await ctx.send(f"You have applied a command onto user {ctx.target.user.username}!")
 
+ti = interactions.SelectMenu(
+    options=[
+        interactions.SelectOption(
+            label="I'm a cool option1. :)",
+            value="internal_option_value1",
+            description="some extra info about me! :D1",
+        ), 
+        interactions.SelectOption(
+            label="I'm a cool option2. :)",
+            value="internal_option_value2",
+            description="some extra info about me! :D2",
+        )
+    ],
+    placeholder="Check out my options. :)",
+    custom_id="menu_component1",
+)
+
+
+@bot.command(
+    name="text_input_test",
+    description="This is the first command I made!",
+)
+async def text_input_test(ctx:interactions.CommandContext):
+    await ctx.send("testing", components=ti)
+
+@bot.component("menu_component1")
+async def button_response(ctx:interactions.CommandContext, text:int):
+    await ctx.send(f"You said : {text}", ephemeral=True)
+
 # ================================
 # ============= MODAL ============
 # ================================
+
+
+
 
 async def send_modal(ctx:interactions.CommandContext, game:Game):
     modal = CNTextInput.state_modal(game)
