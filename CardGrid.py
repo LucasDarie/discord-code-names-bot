@@ -39,10 +39,10 @@ class CardGrid(object):
                 print(e)
                 raise WordListFileNotFound(language=language)
 
+        words = list(dict.fromkeys(words)) # remove duplicates
         if len(words) < self.grid_size**2:
             raise NotEnoughWordsInFile(language=language)
 
-        words = list(dict.fromkeys(words)) # remove duplicates
         word_list:list[str] = random.sample(words, self.grid_size**2)
         
         self.card_list:list[list[Card]] = [[Card(word_list[i*self.grid_size+j], ColorCard.WHITE) for j in range(self.grid_size)] for i in range(self.grid_size)]
