@@ -65,7 +65,7 @@ class CodeNamesButton(enum.Enum):
                case CodeNamesButton.DISPLAY_GRID_BUTTON:
                   return "DISPLAY GRID"
                case CodeNamesButton.SPY_INTERACTION_BUTTON:
-                  return "SUGGEST AN HINT"
+                  return "SUGGEST A HINT"
                case CodeNamesButton.PLAYER_INTERACTION_BUTTON:
                   return "GUESS A WORD"
 
