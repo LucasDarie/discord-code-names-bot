@@ -165,7 +165,7 @@ async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, d
 
 @bot.command()
 async def delete(ctx: interactions.CommandContext):
-    """Create a game of Code Names"""
+    """Delete the current channel game of Code Names"""
     try:
         language:Language = Language.get_discord_equivalent(ctx.locale)
         await GAME_LIST.delete_game(channel_id=str(ctx.channel_id), language=language)

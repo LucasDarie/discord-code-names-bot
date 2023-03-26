@@ -134,7 +134,7 @@ def get_player_text_input(language:Language) -> list[interactions.TextInput]:
    return [_get_guess_text_input(language=language)]
 
 def get_spy_text_input(language:Language) -> list[interactions.TextInput]:
-   return [_get_guess_text_input(language=language), _get_nb_try_text_input(language)]
+   return [_get_suggest_text_input(language=language), _get_nb_try_text_input(language)]
          
 
 def _get_guess_text_input(language:Language) -> interactions.TextInput:
