@@ -64,7 +64,7 @@ Spy grid image
 [![Spy grid][spy-grid]]()
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
@@ -79,7 +79,7 @@ Don't forget to accept the following permissions when inviting the bot :
 
 [![Invite permissions][invite-permissions]]()
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
@@ -119,7 +119,7 @@ To create a game you need to use the following command:
 - [DEFAULT_WORD_LIST]: `[True | False]` (default : `True`)
 - [SERVER_WORD_LIST]: `[True | False]` (default : `False`)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Delete a game
 <a name="delete-command"></a>
@@ -130,7 +130,7 @@ To delete a game run this command in the channel where the game was created:
 /delete
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Join a game
 <a name="join-command"></a>
@@ -141,11 +141,11 @@ To join a game run this command and choose your team:
 ```
 
 - TEAM: `[BLUE | RED | GREEN | YELLOW]`
-- SPY: `[True | False]` (be part of the list of potential spies)
+- [SPY]: `[True | False]` (default: `False`) be part of the list of potential spies 
 
 (1 team : blue, 2 teams: blue or red 3 teams: blue, red or green...)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Leave a game
 <a name="leave-command"></a>
@@ -156,7 +156,7 @@ To leave a game run this command:
 /leave
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Start a game
 <a name="start-command"></a>
@@ -167,7 +167,7 @@ To start a game the `game creator` can run this command:
 /start
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Display the grid
 <a name="display-command"></a>
@@ -180,7 +180,7 @@ Each `player of the game` can display the grid by running this command:
 The grid will be display only for the user that ran the command  
 If the user is a spy the spy's grid will be displayed, else it will be the "normal" grid
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Suggest a hint
 <a name="suggest-command"></a>
@@ -200,7 +200,7 @@ Overview of the suggestion pop up window:
 
 [![Suggestion pop up window][modal-spy]]()
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Guess a word
 <a name="guess-command"></a>
@@ -218,7 +218,7 @@ Overview of the word guesing window:
 
 [![Guessing pop up window][modal-player]]()
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Skip your turn
 <a name="skip-command"></a>
@@ -229,7 +229,7 @@ When it's their turn, players can run this command after guessing at least 1 wor
 /skip
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 ### Upload word list
 <a name="upload-command"></a>
@@ -251,7 +251,7 @@ Conditions for uploading a file:
 - alphanumeric characters, hyphen (-) and underscore (_) allowed
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
@@ -272,7 +272,7 @@ Conditions for uploading a file:
 
 See the [open issues](https://github.com/LucasDarie/discord-code-names-bot/issues) for a full list of proposed features (and known issues).
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
@@ -290,7 +290,7 @@ Don't forget to give the project a star! Thanks again!
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 -->
 
 
@@ -302,7 +302,7 @@ Lucas Darie
 
 Project Link: [https://github.com/LucasDarie/discord-code-names-bot](https://github.com/LucasDarie/discord-code-names-bot)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
@@ -314,7 +314,7 @@ This bot is wirtten in python using interactions.py
 * [interactions.py Github page](https://github.com/interactions-py/interactions.py)
 * [interactions.py Discord server](https://discord.gg/interactions)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right"><a href="#readme-top">back to top</a></p>
 
 
 
