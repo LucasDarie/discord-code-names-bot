@@ -77,7 +77,7 @@ Just invite the bot with the following link: [Invite discord bot](https://exampl
 
 Don't forget to accept the following permissions when inviting the bot :
 
-<img src="images/readme/invite_permission.png" alt="Logo" width="250">
+[![Invite permissions][invite-permissions]]()
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
