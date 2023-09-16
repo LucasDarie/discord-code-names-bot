@@ -309,7 +309,7 @@ Project Link: [https://github.com/LucasDarie/discord-code-names-bot](https://git
 <!-- CREDIT -->
 ## Credit
 
-This bot is wirtten in python using interactions.py
+This bot is written in python using interactions.py
 
 * [interactions.py Github page](https://github.com/interactions-py/interactions.py)
 * [interactions.py Discord server](https://discord.gg/interactions)
