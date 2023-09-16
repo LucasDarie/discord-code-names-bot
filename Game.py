@@ -494,7 +494,7 @@ class Game(object):
         player:Player = self.player_list[user.id]
         player.can_be_spy = not player.can_be_spy
 
-    def get_all_pretenders_id(self) -> list[int]:
+    def get_all_pretenders_id(self) -> list[di.Snowflake_Type]:
         return [int(p.user.id) for p in self.player_list.values() if p.can_be_spy]
         
 

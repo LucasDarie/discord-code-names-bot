@@ -27,7 +27,7 @@ GAME_LIST = GameList()
 
 
 @bot.user_command(name="User Command")
-async def test(ctx: interactions.CommandContext):
+async def test(ctx: interactions.ContextMenuContext):
     print(ctx.channel_id)
     if not isinstance(ctx.target, interactions.Member):
         await ctx.send(f"You have applied a command onto an unknown user!")
@@ -47,24 +47,24 @@ async def test(ctx: interactions.CommandContext):
 
 
 
-async def send_modal(ctx:interactions.CommandContext, game:Game):
+async def send_modal(ctx:interactions.ComponentContext, game:Game):
     modal = CNTextInput.state_modal(game)
     if modal is None:
         return await ctx.send(Translator.get_error_message(game.language))
-    await ctx.popup(modal)
+    await ctx.send_modal(modal)
 
-@bot.modal("spy_modal")
-async def spy_modal(ctx:interactions.CommandContext, hint: str, nb_try:str):
+@interactions.modal_callback("spy_modal")
+async def spy_modal(ctx:interactions.ModalContext, hint: str, nb_try:str):
     try:
         if(not nb_try.isnumeric()):
             raise WrongHintNumberGiven(language=Language.get_discord_equivalent(ctx.locale))
-        await suggest(ctx=ctx, hint=hint, number_of_try=int(nb_try))
+        await suggest(context=ctx, hint=hint, number_of_try=int(nb_try))
     except WrongHintNumberGiven as e:
         await ctx.send(e.message, ephemeral=True)
     # await ctx.send(f"ESPION: {hint}, {nb_try}", ephemeral=True)
 
-@bot.modal("player_modal")
-async def player_modal(ctx:interactions.CommandContext, response: str):
+@interactions.modal_callback("player_modal")
+async def player_modal(ctx:interactions.ModalContext, response: str):
     if(response.isnumeric()):
         await guess_by_func(ctx=ctx, card_id=int(response))
     else:
@@ -72,9 +72,9 @@ async def player_modal(ctx:interactions.CommandContext, response: str):
 
 
 
-@bot.command()
+@interactions.slash_command()
 @bot.component(CodeNamesButton.DISPLAY_GRID_BUTTON.value)
-async def display(ctx: interactions.CommandContext):
+async def display(ctx: interactions.ComponentContext):
     """Display the grid depending on your role"""
     try:
         game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
@@ -108,42 +108,42 @@ async def spy(ctx: interactions.ComponentContext):
         await ctx.send(e.message, ephemeral=True)
 
 
-@bot.command() # type: ignore
-@interactions.option(
+@interactions.slash_command()
+@interactions.slash_option(
     description="Chose the language of the game",
-    type=interactions.OptionType.STRING,
+    opt_type=interactions.OptionType.STRING,
     name="language",
     required=True,
     choices=[
-        interactions.Choice(name="French", value=Language.FR.value),
-        interactions.Choice(name="English", value=Language.EN.value)
+        interactions.SlashCommandChoice(name="French", value=Language.FR.value),
+        interactions.SlashCommandChoice(name="English", value=Language.EN.value)
     ] 
 )
-@interactions.option(
+@interactions.slash_option(
     description="Chose the number of team of the game",
-    type=interactions.OptionType.INTEGER,
+    opt_type=interactions.OptionType.INTEGER,
     name="nb_teams",
     required=True,
     choices=[
-        interactions.Choice(name="1", value=1),
-        interactions.Choice(name="2", value=2),
-        interactions.Choice(name="3", value=3),
-        interactions.Choice(name="4", value=4)
+        interactions.SlashCommandChoice(name="1", value=1),
+        interactions.SlashCommandChoice(name="2", value=2),
+        interactions.SlashCommandChoice(name="3", value=3),
+        interactions.SlashCommandChoice(name="4", value=4)
     ] 
 )
-@interactions.option(
+@interactions.slash_option(
     description="Select True if you want to play with the default word list of the selected language, else False",
     name="default_word_list",
-    type=interactions.OptionType.BOOLEAN,
+    opt_type=interactions.OptionType.BOOLEAN,
     required=False
 )
-@interactions.option(
+@interactions.slash_option(
     description="Select True if you want to play with your server word list, else False",
     name="server_word_list",
-    type=interactions.OptionType.BOOLEAN,
+    opt_type=interactions.OptionType.BOOLEAN,
     required=False
 )
-async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, default_word_list:bool=True, server_word_list:bool=False):
+async def create(ctx: interactions.SlashContext, language:str, nb_teams:int, default_word_list:bool=True, server_word_list:bool=False):
     """Create a game of Code Names"""
     lang:Language = Language.get_by_string(language_string=language)
     try:
@@ -163,8 +163,8 @@ async def create(ctx: interactions.CommandContext, language:str, nb_teams:int, d
 
 
 
-@bot.command()
-async def delete(ctx: interactions.CommandContext):
+@interactions.slash_command()
+async def delete(ctx: interactions.SlashContext):
     """Delete the current channel game of Code Names"""
     try:
         language:Language = Language.get_discord_equivalent(ctx.locale)
@@ -175,7 +175,7 @@ async def delete(ctx: interactions.CommandContext):
 
 
 async def join_team(
-        ctx: interactions.ComponentContext | interactions.CommandContext, 
+        ctx: interactions.ComponentContext | interactions.SlashContext, 
         team:str, 
         spy:bool | None,
         message:interactions.Message | None =None):
@@ -203,26 +203,26 @@ async def join_team(
 
 
 
-@bot.command() # type: ignore
-@interactions.option(
+@interactions.slash_command()
+@interactions.slash_option(
     description="Chose your team !",
-    type=interactions.OptionType.STRING,
+    opt_type=interactions.OptionType.STRING,
     name="team",
     required=True,
     choices=[
-        interactions.Choice(name=ColorCard.BLUE.value, value=ColorCard.BLUE.value),
-        interactions.Choice(name=ColorCard.RED.value, value=ColorCard.RED.value),
-        interactions.Choice(name=ColorCard.GREEN.value, value=ColorCard.GREEN.value),
-        interactions.Choice(name=ColorCard.YELLOW.value, value=ColorCard.YELLOW.value)
+        interactions.SlashCommandChoice(name=ColorCard.BLUE.value, value=ColorCard.BLUE.value),
+        interactions.SlashCommandChoice(name=ColorCard.RED.value, value=ColorCard.RED.value),
+        interactions.SlashCommandChoice(name=ColorCard.GREEN.value, value=ColorCard.GREEN.value),
+        interactions.SlashCommandChoice(name=ColorCard.YELLOW.value, value=ColorCard.YELLOW.value)
     ] 
 )
-@interactions.option(
+@interactions.slash_option(
     description="True if you want to be chose to be the spy, else False",
     name="spy",
-    type=interactions.OptionType.BOOLEAN,
+    opt_type=interactions.OptionType.BOOLEAN,
     required=False
 )
-async def join(ctx: interactions.CommandContext, team:str, spy:bool=False):
+async def join(ctx: interactions.SlashContext, team:str, spy:bool=False):
     """Join a game of Code Names"""
     await join_team(ctx, team, spy=spy)
 
@@ -234,22 +234,22 @@ async def on_login_red_click(ctx:interactions.ComponentContext):
 
 
 @bot.component(CodeNamesButton.BLUE_JOIN_BUTTON.value)
-async def on_login_blue_click(ctx:interactions.CommandContext):
+async def on_login_blue_click(ctx:interactions.SlashContext):
     await join_team(ctx, team=ColorCard.BLUE.value, spy=None, message=ctx.message)
 
 
 @bot.component(CodeNamesButton.GREEN_JOIN_BUTTON.value)
-async def on_login_green_click(ctx:interactions.CommandContext):
+async def on_login_green_click(ctx:interactions.SlashContext):
     await join_team(ctx, team=ColorCard.GREEN.value, spy=None, message=ctx.message)
 
 
 @bot.component(CodeNamesButton.YELLOW_JOIN_BUTTON.value)
-async def on_login_yellow_click(ctx:interactions.CommandContext):
+async def on_login_yellow_click(ctx:interactions.SlashContext):
     await join_team(ctx, team=ColorCard.YELLOW.value, spy=None, message=ctx.message)
 
 @bot.component(CodeNamesButton.SPY_INTERACTION_BUTTON.value)
 @bot.component(CodeNamesButton.PLAYER_INTERACTION_BUTTON.value)
-async def on_base_action_click(ctx:interactions.CommandContext):
+async def on_base_action_click(ctx:interactions.ComponentContext):
     try:
         game:Game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         await send_modal(ctx, game)
@@ -259,9 +259,9 @@ async def on_base_action_click(ctx:interactions.CommandContext):
 
 
 
-@bot.command()
+@interactions.slash_command()
 @bot.component(CodeNamesButton.LEAVE_BUTTON.value)
-async def leave(ctx: interactions.CommandContext):
+async def leave(ctx: interactions.ComponentContext):
     """leave a game that did not start"""
     try:
         game:Game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
@@ -280,9 +280,9 @@ async def leave(ctx: interactions.CommandContext):
 
 
 
-@bot.command()
+@interactions.slash_command()
 @bot.component(CodeNamesButton.START_BUTTON.value)
-async def start(ctx: interactions.CommandContext):
+async def start(ctx: interactions.ComponentContext):
     """Start the game of Code Names"""
     try:
         game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
@@ -301,10 +301,20 @@ async def start(ctx: interactions.CommandContext):
 
 
 
-@bot.command() # type: ignore
-@interactions.option(description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info")
-@interactions.option(description="The number of tries your teammates will have to guess the words")
-async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int):
+@interactions.slash_command()
+@interactions.slash_option(
+    name="hint",
+    description="A hint that will help your teammates to guess the words of your color. Use `/rules` for more info",
+    required=True,
+    opt_type=interactions.OptionType.STRING
+)
+@interactions.slash_option(
+    name="hint",
+    description="The number of tries your teammates will have to guess the words",
+    required=True,
+    opt_type=interactions.OptionType.STRING
+)
+async def suggest(ctx: interactions.SlashContext, hint:str, number_of_try:int):
     """Suggest a hint to help your team to guess words. Provide also a number of try"""
     try:
         game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
@@ -317,26 +327,26 @@ async def suggest(ctx: interactions.CommandContext, hint:str, number_of_try:int)
 
 
 
-@bot.command()
-async def guess(ctx: interactions.CommandContext):
+@interactions.slash_command()
+async def guess(ctx: interactions.SlashContext):
     """This description isn't seen in UI (yet?)"""
     pass
 
 @guess.subcommand()
-@interactions.option(description="guess a word by using the suggested hint")
-async def word(ctx: interactions.CommandContext, word: str):
+@interactions.slash_option(name="word", description="guess a word by using the suggested hint", opt_type=interactions.OptionType.STRING)
+async def word(ctx: interactions.SlashContext, word: str):
     """Propose a word present in the grid"""
     await guess_by_func(ctx=ctx, word=word)
     
 
 @guess.subcommand()
-@interactions.option(description="A descriptive description")
-async def card_id(ctx: interactions.CommandContext, card_id: int):
+@interactions.slash_option(name="card_grid", description="A descriptive description", opt_type=interactions.OptionType.STRING)
+async def card_id(ctx: interactions.SlashContext, card_id: int):
     """Propose a word card number present in the grid"""
     await guess_by_func(ctx=ctx, card_id=card_id)
 
 
-async def guess_by_func(ctx: interactions.CommandContext, word:str | None = None, card_id: int | None = None):
+async def guess_by_func(ctx: interactions.SlashContext | interactions.ModalContext, word:str | None = None, card_id: int | None = None):
     try:
         game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
         if word == None and card_id != None:
@@ -362,9 +372,9 @@ async def guess_by_func(ctx: interactions.CommandContext, word:str | None = None
     except (GameNotFound, GameNotStarted, NotInGame, NotYourRole, NotYourTurn, WordNotInGrid, WrongCardIdNumberGiven) as e:
         await ctx.send(e.message, ephemeral=True)
 
-@bot.command()
+@interactions.slash_command()
 @bot.component(CodeNamesButton.SKIP_BUTTON.value)
-async def skip(ctx: interactions.CommandContext):
+async def skip(ctx: interactions.ComponentContext):
     """End the player turn if at least one word is proposed"""
     try:
         game = await GAME_LIST.get_game(str(ctx.channel_id), language=Language.get_discord_equivalent(ctx.locale))
@@ -376,24 +386,23 @@ async def skip(ctx: interactions.CommandContext):
         await ctx.send(e.message, ephemeral=True)
 
 
-@bot.command() # type: ignore
-@interactions.option(
+@interactions.slash_command()
+@interactions.slash_option(
+    name="file",
     description=".txt with alphanumerical or `-` characters. 1 word (<12 char) per line, 1000 words max, no duplicate",
-    type=interactions.OptionType.ATTACHMENT,
-    name="file"
+    opt_type=interactions.OptionType.ATTACHMENT
 )
-async def upload(ctx: interactions.CommandContext, file: interactions.Attachment):
+async def upload(ctx: interactions.SlashContext, file: interactions.Attachment):
     """Send a list of word in a `.txt` file"""
-    guild = await ctx.get_guild()
     if not file.filename.endswith(".txt"):
         return await ctx.send("The file must be a tkt file")
     if file.size > 15000:
         print(file.size)
         size_kB = str(file.size/1000)
         return await ctx.send(f"The file is too large. Received: {size_kB[:size_kB.find('.')+2]}kB, max: 15kB", ephemeral=True)
-    downloaded_file = await file.download()
+    downloaded_file = await file.url # aiohttp
     wrapper = io.TextIOWrapper(downloaded_file, encoding='utf-8')
-    write_list_file(wrapper, max_word=1000, max_length_word=11, guild_id=str(guild.id))
+    write_list_file(wrapper, max_word=1000, max_length_word=11, guild_id=str(ctx.guild_id))
     return await ctx.send("File added")
 
 
