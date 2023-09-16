@@ -1,7 +1,7 @@
 from __future__ import annotations
 import enum
 from Language import Language
-from interactions import Emoji, Snowflake
+from interactions import PartialEmoji, Snowflake
 
 class ColorCard(enum.Enum):
    WHITE = "WHITE"
@@ -54,19 +54,19 @@ class ColorCard(enum.Enum):
          case _:
             return self.value
          
-   def get_emoji(self:ColorCard) -> Emoji:
+   def get_emoji(self:ColorCard) -> PartialEmoji:
       match self:
          case ColorCard.BLUE:
-            return Emoji(name="🔵")
+            return PartialEmoji(name="🔵")
          case ColorCard.RED:
-            return Emoji(id=Snowflake("1082757439830634547"), name="red_diamond")
+            return PartialEmoji(id=Snowflake(1082757439830634547), name="red_diamond")
          case ColorCard.GREEN:
-            return Emoji(id=Snowflake("1082752939619274812"), name="green_triangle")
+            return PartialEmoji(id=Snowflake(1082752939619274812), name="green_triangle")
          case ColorCard.YELLOW:
-            return Emoji(id=Snowflake("1082752942785953852"), name="yellow_star")
+            return PartialEmoji(id=Snowflake(1082752942785953852), name="yellow_star")
          # can't happen
          case _:
-            return Emoji()
+            return PartialEmoji()
          
       
    @classmethod
