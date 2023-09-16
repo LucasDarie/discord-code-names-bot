@@ -25,10 +25,10 @@ class TestGame:
         default_word_list=True,
         server_word_list=False
     )
-    user1:di.User = di.User(id=di.Snowflake("1234567891"), username="user1")
-    user2:di.User = di.User(id=di.Snowflake("1234567892"), username="user2")
-    user3:di.User = di.User(id=di.Snowflake("1234567893"), username="user3")
-    user4:di.User = di.User(id=di.Snowflake("1234567894"), username="user4")
+    user1:di.User = di.User(id=di.Snowflake(1234567891), username="user1", avatar="", client="") # type: ignore
+    user2:di.User = di.User(id=di.Snowflake(1234567892), username="user2", avatar="", client="") # type: ignore
+    user3:di.User = di.User(id=di.Snowflake(1234567893), username="user3", avatar="", client="") # type: ignore
+    user4:di.User = di.User(id=di.Snowflake(1234567894), username="user4", avatar="", client="") # type: ignore
 
     @pytest.mark.asyncio
     async def test_nb_player_in_team(self):
