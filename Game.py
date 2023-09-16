@@ -93,10 +93,9 @@ class Game(object):
 
         if team_color not in self.team_colors:
             raise TeamNotAvailable(self.language)
-        
         # already in Game : change team color
-        if user.id in self.player_list:
-            player:Player = self.player_list[user.id]
+        if str(user.id) in self.player_list:
+            player:Player = self.player_list[str(user.id)]
             # pop the player from there team
             self.teams[player.team_color].remove(player)
             # change team color
