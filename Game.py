@@ -1,3 +1,4 @@
+from functools import wraps
 import random
 from Language import Language
 from CardGrid import CardGrid
@@ -25,6 +26,106 @@ class Player(object):
         self.can_be_spy: bool = can_be_spy
 
 
+# ===========================
+# ===========================
+#
+# ======= Decorators ========
+#
+# ===========================
+# ===========================
+
+def is_player_in_game(func):
+    """
+    Decorator function to check if a player is in the game before executing the decorated function.
+    
+    Args:
+        func (function): The function to be decorated.
+    
+    Returns:
+        function: The decorated function.
+    
+    Raises:
+        NotInGame: If the player is not in the game.
+    """
+    @wraps(func)
+    async def wrapper(self:'Game', user, *args, **kwargs):
+        if str(user.id) not in self.player_list:
+            raise NotInGame(self.language)
+        else:
+            return await func(self, user, *args, **kwargs)
+    return wrapper
+
+def is_game_not_started(func):
+    """
+    Decorator that checks if the game has not started yet.
+    If the game has already started, it raises a GameAlreadyStarted exception.
+    Otherwise, it calls the decorated function.
+
+    Args:
+        func (callable): The function to be decorated.
+
+    Returns:
+        callable: The decorated function.
+    """
+    @wraps(func)
+    async def wrapper(self:'Game', *args, **kwargs):
+        if self.state != State.WAITING:
+            raise GameAlreadyStarted(self.language)
+        else:
+            return await func(self, *args, **kwargs)
+    return wrapper
+
+def is_game_started(func):
+    """
+    Decorator function that checks if the game has started before executing the decorated function.
+    
+    Args:
+        func (callable): The function to be decorated.
+    
+    Returns:
+        callable: The decorated function.
+    
+    Raises:
+        GameNotStarted: If the game has not started.
+    """
+    @wraps(func)
+    async def wrapper(self:'Game', *args, **kwargs):
+        if self.state == State.WAITING:
+            raise GameNotStarted(self.language)
+        else:
+            return await func(self, *args, **kwargs)
+    return wrapper
+
+def is_game_creator(func):
+    """
+    Decorator function that checks if the caller is the creator of the game.
+    
+    Args:
+        func (callable): The function to be decorated.
+        
+    Returns:
+        callable: The decorated function.
+        
+    Raises:
+        NotGameCreator: If the caller is not the creator of the game.
+    """
+    @wraps(func)
+    async def wrapper(self:'Game', creator_id:str, *args, **kwargs):
+        if self.creator_id != creator_id:
+            raise NotGameCreator(self.language)
+        else:
+            return await func(self, creator_id, *args, **kwargs)
+    return wrapper
+
+
+# ============================
+# ============================
+#
+# ========== Class ===========
+#
+# ============================
+# ============================
+
 class Game(object):
     
 
@@ -32,10 +133,10 @@ class Game(object):
         """constructeur of a Game object
 
         Args:
-            language (Language): the language of the game
-            creator_id (str): the discord id of the creator of the game
-            channel_id (str): the channel id where the game has been created
-            guild_id (str) : the guild id where the game has been created
+            creator (Creator): the creator of the game
+            nb_teams (int): the number of teams in the game
+            default_word_list (bool): if the default word list is used
+            server_word_list (bool): if the server word list is used
 
         Raises:
             WordListFileNotFound: if the word file of the guild_id is not found
@@ -75,6 +176,7 @@ class Game(object):
         self.bonus_proposition:bool = True
         self.one_word_found:bool = False
     
+    @is_game_not_started
     async def join(self, user: di.User, team_color: ColorCard, can_be_spy: bool | None):
         """add a user to the game. 
             If the Player is already in the game, switch there team color.
@@ -88,8 +190,6 @@ class Game(object):
             GameAlreadyStarted: when the game is already started
             TeamNotAvailable: when the team given is not is the teams list of the game
         """
-        if self.state != State.WAITING:
-            raise GameAlreadyStarted(self.language)
 
         if team_color not in self.team_colors:
             raise TeamNotAvailable(self.language)
@@ -111,7 +211,8 @@ class Game(object):
         self.player_list[str(user.id)] = p
         self.teams[team_color].append(p)
 
-
+    @is_game_not_started
+    @is_player_in_game
     async def leave(self, user:di.User):
         """remove a user from a game
 
@@ -122,13 +223,8 @@ class Game(object):
             GameAlreadyStarted: when the game is already started
             NotInGame: when the user is not in the game
         """
-        if self.state != State.WAITING:
-            raise GameAlreadyStarted(self.language)
         
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
-        
-        player:Player = self.player_list.pop(user.id)
+        player:Player = self.player_list.pop(str(user.id))
         self.teams[player.team_color].remove(player)
 
 
@@ -212,6 +308,8 @@ class Game(object):
             spy.isSpy = True
             self.spies[team_color] = spy
 
+    @is_game_not_started
+    @is_game_creator
     async def start(self, creator_id:str):
         """Starts a new game if the creator_id is the same as the User that create the game
 
@@ -223,15 +321,11 @@ class Game(object):
             GameAlreadyStarted: if the game is already started
             NotEnoughPlayerInTeam: if the number of player in a team is smaller than 2
         """
-        if self.creator_id != creator_id:
-            raise NotGameCreator(self.language)
-        
-        if self.state != State.WAITING:
-            raise GameAlreadyStarted(self.language)
         
         i = 0
         while i < len(self.team_colors):
             if self.nb_player_in_team(self.team_colors[i]) < self.nb_minimum_player:
+                print(self.nb_player_in_team(self.team_colors[i]))
                 raise NotEnoughPlayerInTeam(self.language)
             i += 1
         
@@ -241,6 +335,9 @@ class Game(object):
 
         self.next_state()
 
+
+    @is_player_in_game
+    @is_game_started
     async def suggest(self, user:di.User, word:str, number:int) -> tuple[str, int]:
         """suggest a word and a number of tries for a spy
 
@@ -261,13 +358,8 @@ class Game(object):
         Returns:
             tuple[str, int]: the word and the number stored
         """
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
-        
-        if self.state == State.WAITING:
-            raise GameNotStarted(self.language)
 
-        player:Player = self.player_list[user.id]
+        player:Player = self.player_list[str(user.id)]
 
         if not player.isSpy:
             raise NotYourRole(self.language)
@@ -323,6 +415,8 @@ class Game(object):
         # can raise the other Exceptions mentioned in the doc
         return await self.guess_by_word(user, word)
     
+    @is_player_in_game
+    @is_game_started
     async def guess_by_word(self, user:di.User, word:str) -> tuple[ColorCard, str]:
         """proposed a word in the grid
 
@@ -341,13 +435,8 @@ class Game(object):
         Returns:
             tuple[ColorCard, str]: the color of the guessed card and the word
         """
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
         
-        if self.state == State.WAITING:
-            raise GameNotStarted(self.language)
-        
-        player:Player = self.player_list[user.id]
+        player:Player = self.player_list[str(user.id)]
 
         if player.isSpy:
             raise NotYourRole(self.language)
@@ -381,6 +470,8 @@ class Game(object):
         except WordNotInGrid:
             raise
 
+    @is_player_in_game
+    @is_game_started
     async def skip(self, user:di.User):
         """skip the turn of a player
 
@@ -395,13 +486,8 @@ class Game(object):
             NotYourTurn: if it's not the team of the user that play
             NoWordGuessed: if the player didn't found any word
         """
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
         
-        if self.state == State.WAITING:
-            raise GameNotStarted(self.language)
-        
-        player:Player = self.player_list[user.id]
+        player:Player = self.player_list[str(user.id)]
 
         if player.isSpy:
             raise NotYourRole(self.language)
@@ -429,11 +515,7 @@ class Game(object):
 
         await asyncio.wait([taskSpy, taskPlayer])
 
-    #def create_grid(self):
-    #    loop = asyncio.get_event_loop()
-    #    loop.run_until_complete(self.generate_grids())
-    #    loop.close()
-
+    @is_game_started
     def get_image_path(self, isSpy:bool=False) -> str:
         """return the image path based on the isSpy bool passed in param
 
@@ -446,16 +528,16 @@ class Game(object):
 
         Returns:
             str: the path of the image
-        """        
-        if self.state == State.WAITING:
-            raise GameNotStarted(self.language)
+        """
+        
         path = f"render/{self.channel_id}{'_SPY' if isSpy else '_PLAYER'}.png"
         try:
             Image.open(path)
             return path
         except FileNotFoundError:
             raise
-        
+
+    @is_player_in_game 
     def get_user_image_path(self,  user: di.User) -> str:
         """return the image path for the player
 
@@ -470,12 +552,15 @@ class Game(object):
         Returns:
             str: the path of the image
         """
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
-        player:Player = self.player_list[user.id]
+        
+        player:Player = self.player_list[str(user.id)]
         return self.get_image_path(player.isSpy) # can raise GameNotStarted
 
-    def invert_can_be_spy(self, user:di.User):
+    
+
+    @is_player_in_game
+    @is_game_not_started
+    async def invert_can_be_spy(self, user:di.User):
         """invert the state of 'can_be_spy' field of the player
 
         Args:
@@ -485,18 +570,15 @@ class Game(object):
             NotInGame: if the player is not in the game
             GameAlreadyStarted: when the game is already started
         """
-        if user.id not in self.player_list:
-            raise NotInGame(self.language)
         
-        if self.state != State.WAITING:
-            raise GameAlreadyStarted(self.language)
-        
-        player:Player = self.player_list[user.id]
+        player:Player = self.player_list[str(user.id)]
         player.can_be_spy = not player.can_be_spy
 
     def get_all_pretenders_id(self) -> list[di.Snowflake_Type]:
         return [int(p.user.id) for p in self.player_list.values() if p.can_be_spy]
-        
+
+
+       
 
 
         
